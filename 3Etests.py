@@ -1,9 +1,6 @@
-import networkx as nx
-from Classes import Path, Order, Orderbook
-from ModifiedNetworkX import calcSlippageLoss, _slippage_dijkstra_alg, slippage_dijkstra
+from Classes import Order
 from NetIntegratedClasses import loss_function
-from helpers import random_allocation_sampler, create_samples
-import tensorflow as tf
+from helpers import create_samples
 from mpl_toolkits import mplot3d
 import numpy as np
 import matplotlib.pyplot as plt
@@ -13,7 +10,7 @@ import matplotlib.pyplot as plt
 # if liquidity less than order on order book delete it 
 
 
-total_liquidity = 100000
+total_liquidity = 10000
 order_book = [Order(100, "wETH", "ZAP"), Order(100, "wETH", "SHIB"), Order(100, "SHIB", "ZAP")]
 #edges = []
 
@@ -21,11 +18,11 @@ order_book = [Order(100, "wETH", "ZAP"), Order(100, "wETH", "SHIB"), Order(100, 
 
 edges = [["wETH", "SHIB"], ["ZAP", "SHIB"], ["wETH", "ZAP"]]
 
-samples = create_samples(edges, total_liquidity, 1000)
+samples = create_samples(edges, total_liquidity, 100000)
 
 print(samples)
 
-order_book = [Order(100, "wETH", "ZAP"), Order(100, "wETH", "SHIB"), Order(100, "SHIB", "ZAP")]
+order_book = [Order(100, "wETH", "ZAP"), Order(0, "wETH", "SHIB"), Order(100, "SHIB", "ZAP")]
 
 loss_data = []
 z_data = []
