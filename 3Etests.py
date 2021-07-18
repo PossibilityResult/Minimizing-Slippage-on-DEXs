@@ -16,13 +16,13 @@ order_book = [Order(100, "wETH", "ZAP"), Order(100, "wETH", "SHIB"), Order(100, 
 
 #edges = [["wETH", "SHIB", 10000], ["ZAP", "SHIB", 20000], ["wETH", "ZAP", 5000]]
 
-edges = [["wETH", "SHIB"], ["ZAP", "SHIB"], ["wETH", "ZAP"]]
+edges = [["1", "2"], ["2", "3"], ["1", "3"]]
 
 samples = create_samples(edges, total_liquidity, 100000)
 
-print(samples)
+#print(samples)
 
-order_book = [Order(100, "wETH", "ZAP"), Order(0, "wETH", "SHIB"), Order(100, "SHIB", "ZAP")]
+order_book = [Order(100, "1", "2"), Order(100, "2", "3"), Order(100, "1", "2")]
 
 loss_data = []
 z_data = []
@@ -41,9 +41,9 @@ ax = plt.axes(projection='3d')
 
 ax.scatter(x_data, y_data, z_data, c=loss_data, cmap='nipy_spectral')
 
-ax.set_xlabel("Liquidiy (wETH - SHIB)")
-ax.set_ylabel("Liquidiy (ZAP - SHIB)")
-ax.set_zlabel("Liquidiy (wETH - ZAP)")
+ax.set_xlabel("Liquidity $ (1 - 2)")
+ax.set_ylabel("Liquidity $ (2 - 3)")
+ax.set_zlabel("Liquidity $ (3 - 1)")
 plt.show()
         
 

@@ -14,11 +14,11 @@ total_liquidity = 100000
 
 #edges = [["wETH", "SHIB", 1-2], ["SHIB", "ZAP", 2-3], ["ZAP", "UNI", 3-4], ["UNI", "wETH", 4-1], ["wETH", "ZAP", 1-3], ["UNI", "SHIB", 2,4]]
 
-edges = [["wETH", "SHIB"], ["SHIB", "ZAP"], ["ZAP", "UNI"], ["UNI", "wETH"], ["wETH", "ZAP"], ["UNI", "SHIB"]]
+edges = [["1", "2"], ["2", "3"], ["3", "4"], ["1", "4"], ["1", "3"], ["2", "4"]]
 
 samples = create_samples(edges, total_liquidity, 10000)
 
-order_book = [Order(100, "wETH", "SHIB"), Order(100, "SHIB", "ZAP"), Order(100, "ZAP", "UNI"), Order(100, "UNI", "wETH"), Order(100, "wETH", "ZAP"), Order(100, "UNI", "SHIB")]
+order_book = [Order(300, "1", "2"), Order(200, "2", "3"), Order(400, "3", "4"), Order(600, "1", "4"), Order(100, "1", "3"), Order(500, "2", "4")]
 
 data = []
 
@@ -28,7 +28,7 @@ for i in range(len(samples)):
 
 data.sort(key = lambda tup: tup[0])
 
-data.insert(0, ["Slippage Loss", "Liquidity ( 1 - 2, {})".format(samples[i][0][0] + " - " + samples[i][0][1]), "Liquidity ( 2 - 3, {})".format(samples[i][1][0] + " - " + samples[i][1][1]), "Liquidity ( 3 - 4, {})".format(samples[i][2][0] + " - " + samples[i][2][1]), "Liquidity ( 4 - 1, {})".format(samples[i][3][0] + " - " + samples[i][3][1]), "Liquidity ( 1 - 3, {})".format(samples[i][4][0] + " - " + samples[i][4][1]), "Liquidity ( 2 - 4, {})".format(samples[i][5][0] + " - " + samples[i][5][1])])
+data.insert(0, ["Slippage Loss", "Liquidity ({})".format(samples[i][0][0] + " - " + samples[i][0][1]), "Liquidity ({})".format(samples[i][1][0] + " - " + samples[i][1][1]), "Liquidity ({})".format(samples[i][2][0] + " - " + samples[i][2][1]), "Liquidity ({})".format(samples[i][3][0] + " - " + samples[i][3][1]), "Liquidity ({})".format(samples[i][4][0] + " - " + samples[i][4][1]), "Liquidity ({})".format(samples[i][5][0] + " - " + samples[i][5][1])])
 
 #for tup in data[:30]:
     #print(tup)
