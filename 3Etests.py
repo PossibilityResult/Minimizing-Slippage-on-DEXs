@@ -11,18 +11,11 @@ import matplotlib.pyplot as plt
 
 
 total_liquidity = 10000
-order_book = [Order(100, "wETH", "ZAP"), Order(100, "wETH", "SHIB"), Order(100, "SHIB", "ZAP")]
-#edges = []
-
-#edges = [["wETH", "SHIB", 10000], ["ZAP", "SHIB", 20000], ["wETH", "ZAP", 5000]]
+order_book = [Order(100, "1", "2"), Order(100, "2", "3"), Order(100, "3", "1")]
 
 edges = [["1", "2"], ["2", "3"], ["1", "3"]]
 
 samples = create_samples(edges, total_liquidity, 100000)
-
-#print(samples)
-
-order_book = [Order(100, "1", "2"), Order(100, "2", "3"), Order(100, "1", "2")]
 
 loss_data = []
 z_data = []

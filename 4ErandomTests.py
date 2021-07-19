@@ -18,7 +18,7 @@ edges = [["1", "2"], ["2", "3"], ["3", "4"], ["1", "4"], ["1", "3"], ["2", "4"]]
 
 samples = create_samples(edges, total_liquidity, 10000)
 
-order_book = [Order(300, "1", "2"), Order(200, "2", "3"), Order(400, "3", "4"), Order(600, "1", "4"), Order(100, "1", "3"), Order(500, "2", "4")]
+order_book = [Order(100, "1", "2"), Order(100, "2", "3"), Order(100, "3", "4"), Order(100, "1", "4"), Order(100, "1", "3"), Order(100, "2", "4")]
 
 data = []
 
