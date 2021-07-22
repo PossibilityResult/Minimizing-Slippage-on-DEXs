@@ -40,10 +40,13 @@ def _slippage_dijkstra_alg(
             break
         for u, e in G_succ[v].items():
             slippage = calcSlippageLoss(e['liquidity'], (exchange_amount - dist[v]))
+            #cost = calcSlippageLoss(e['liquidity'], (exchange_amount - dist[v]))
             #cost = weight(v, u, e)
             if slippage is None:
+            #if cost is None:
                 continue
-            vu_dist = slip[v] + slippage + 10 + .003 * (exchange_amount - (slip[v] + slippage)) #slippage + gas + transaction fee
+            #vu_dist = dist[v] + cost
+            vu_dist = slip[v] + slippage + 10 + .003 * (exchange_amount) #slippage + gas + transaction fee
             if cutoff is not None:
                 if vu_dist > cutoff:
                     continue

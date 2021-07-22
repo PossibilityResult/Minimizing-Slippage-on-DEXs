@@ -21,9 +21,7 @@ def create_samples(support_edges, total_liquidity, num_samples):
     #list of sample liquidity allocations
     samples = []
     for i in range(num_samples):
-        for e in range(len(support_edges)):
-            #print(len(list(random_allocation_sampler(support_edges, total_liquidity))))
-            samples += [random_allocation_sampler(support_edges, total_liquidity)]
+        samples += [random_allocation_sampler(support_edges, total_liquidity)]
 
     return samples
 
@@ -35,7 +33,23 @@ def equiv_order_generator(num_tokens):
             orders.append(Order(100, str(i), str(j)))
             j += 1
 
-    
+def dense_edge_generator(num_edges):
+    edges = []
+    for i in range(1, num_edges):
+        j = i + 1
+        while (j <= num_edges):
+            edges.append([str(i), str(j)])
+            j += 1
+    return edges
+
+def dense_order_book_generator(edges):
+    order_book = []
+    for e in edges:
+        order_book.append(Order(100, e[0], e[1]))
+
+    return order_book
+
+
 #def get_nodes(order_book): for o in order_book:
 
 
