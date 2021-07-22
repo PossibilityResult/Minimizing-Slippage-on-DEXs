@@ -26,6 +26,15 @@ def create_samples(support_edges, total_liquidity, num_samples):
             samples += [random_allocation_sampler(support_edges, total_liquidity)]
 
     return samples
+
+def equiv_order_generator(num_tokens):
+    orders = []
+    for i in range(1, num_tokens + 1):
+        j = i + 1
+        while (j < num_tokens + 1):
+            orders.append(Order(100, str(i), str(j)))
+            j += 1
+
     
 #def get_nodes(order_book): for o in order_book:
 

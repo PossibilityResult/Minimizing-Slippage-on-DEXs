@@ -11,7 +11,7 @@ def calcSlippageLoss(liquidity, q1):
         return float('inf')
     #q2_prime = (R2*q1)/R1
     q2 = (R2*q1)/(R1+q1)
-    return q1 - q2
+    return q1 - q2 #+ 10 #+X for gas fees
 
 def _slippage_dijkstra_alg(
     G, exchange_amount, source, target, paths = None, cutoff=None):
@@ -20,6 +20,7 @@ def _slippage_dijkstra_alg(
     push = heappush
     pop = heappop
     dist = {}  # dictionary of final distances
+    slip = {} # dictionary of slippage for recursion
     seen = {}
     # fringe is heapq with 3-tuples (distance,c,node)
     # use the count c to avoid comparing nodes (may not be able to)
@@ -34,14 +35,15 @@ def _slippage_dijkstra_alg(
         if v in dist:
             continue  # already searched this node.
         dist[v] = d
+        slip[v] = d
         if v == target:
             break
         for u, e in G_succ[v].items():
-            cost = calcSlippageLoss(e['liquidity'], exchange_amount - dist[v])
+            slippage = calcSlippageLoss(e['liquidity'], (exchange_amount - dist[v]))
             #cost = weight(v, u, e)
-            if cost is None:
+            if slippage is None:
                 continue
-            vu_dist = dist[v] + cost
+            vu_dist = slip[v] + slippage + 10 + .003 * (exchange_amount - (slip[v] + slippage)) #slippage + gas + transaction fee
             if cutoff is not None:
                 if vu_dist > cutoff:
                     continue
@@ -51,6 +53,7 @@ def _slippage_dijkstra_alg(
                     raise ValueError("Contradictory paths found:", "negative weights?")
             elif u not in seen or vu_dist < seen[u]:
                 seen[u] = vu_dist
+                slip[u] = slip[v] + slippage
                 push(fringe, (vu_dist, next(c), u))
                 if paths is not None:
                     paths[u] = paths[v] + [u]

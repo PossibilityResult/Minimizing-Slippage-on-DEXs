@@ -6,7 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-total_liquidity = 100000
+total_liquidity = 10000
 order_book = [Order(100, "1", "2"), Order(100, "2", "3"), Order(100, "3", "1")]
 
 two_edges = [["1", "2", total_liquidity/2], ["2", "3", total_liquidity/2], ["1", "3", 0]]
