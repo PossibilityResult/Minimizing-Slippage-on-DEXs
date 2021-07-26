@@ -5,13 +5,13 @@ from itertools import count
 
 def calcSlippageLoss(liquidity, q1):
     R1 = liquidity/2
-    R2 = liquidity/2 #can remove for optimization later
+    #R2 = liquidity/2 #can remove for optimization later
     if (q1 >= R1):
         #insufficient liquidity
         return float('inf')
     #q2_prime = (R2*q1)/R1
-    q2 = (R2*q1)/(R1+q1)
-    return q1 - q2 #+ 10 #+X for gas fees
+    q2 = (R1*q1)/(R1+q1)
+    return q1 - q2 
 
 def _slippage_dijkstra_alg(
     G, exchange_amount, source, target, paths = None, cutoff=None):
