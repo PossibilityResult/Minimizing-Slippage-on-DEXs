@@ -39,7 +39,7 @@ def _slippage_dijkstra_alg(
         if v == target:
             break
         for u, e in G_succ[v].items():
-            slippage = calcSlippageLoss(e['liquidity'], (exchange_amount - dist[v]))
+            slippage = calcSlippageLoss(e['liquidity'], (exchange_amount - slip[v]))
             #cost = calcSlippageLoss(e['liquidity'], (exchange_amount - dist[v]))
             #cost = weight(v, u, e)
             if slippage is None:
