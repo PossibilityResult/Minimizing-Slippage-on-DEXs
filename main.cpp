@@ -1,3 +1,12 @@
+//
+//  pqdij.cpp
+//  dijkstratest
+//
+//  Created by Elijah Fox on 7/26/21.
+//  Copyright © 2021 Elijah Fox. All rights reserved.
+//
+// Program to find Dijkstra's shortest path using
+// priority_queue in STL
 // C / C++ program for Dijkstra's
 // shortest path algorithm for adjacency
 // list representation of graph
@@ -7,278 +16,63 @@
 #include <iostream>
 #include <limits>
 #include <vector>
+#include <random>
+#include <algorithm>
+#include <list>
+#include <functional>
+#include <queue>
 
 using namespace std;
-// A structure to represent a
-// node in adjacency list
-struct AdjListNode
-{
-    int dest;
-    int weight;
-    struct AdjListNode* next;
+# define INF 0x3f3f3f3f
+
+// iPair ==> Integer Pair
+typedef pair<int, int> iPair;
+
+
+struct Order {
+    int src;
+    int target;
+    double amount;
 };
 
-// A structure to represent
-// an adjacency list
-struct AdjList
+
+// This class represents a directed graph using
+// adjacency list representation
+class Graph
 {
-    // Pointer to head node of list
-    struct AdjListNode *head;
-};
+    int V; // No. of vertices
 
-// A structure to represent a graph.
-// A graph is an array of adjacency lists.
-// Size of array will be V (number of
-// vertices in graph)
-struct Graph
-{
-    int V;
-    struct AdjList* array;
-};
+    // In a weighted graph, we need to store vertex
+    // and weight pair for every edge
+    list< pair<int, int> > *adj;
 
-// A utility function to create
-// a new adjacency list node
-struct AdjListNode* newAdjListNode(
-                int dest, int weight)
-{
-    struct AdjListNode* newNode =
-            (struct AdjListNode*)
-    malloc(sizeof(struct AdjListNode));
-    newNode->dest = dest;
-    newNode->weight = weight;
-    newNode->next = NULL;
-    return newNode;
-}
+public:
+    Graph(int V); // Constructor
 
-// A utility function that creates
-// a graph of V vertices
-struct Graph* createGraph(int V)
-{
-    struct Graph* graph = (struct Graph*)
-            malloc(sizeof(struct Graph));
-    graph->V = V;
+    // function to add an edge to graph
+    void addEdge(int u, int v, double w);
 
-    // Create an array of adjacency lists.
-    // Size of array will be V
-    graph->array = (struct AdjList*)
-    malloc(V * sizeof(struct AdjList));
-
-    // Initialize each adjacency list
-    // as empty by making head as NULL
-    for (int i = 0; i < V; ++i)
-        graph->array[i].head = NULL;
-
-    return graph;
-}
-
-// Adds an edge to an undirected graph
-void addEdge(struct Graph* graph, int src,
-                int dest, int weight)
-{
-    // Add an edge from src to dest.
-    // A new node is added to the adjacency
-    // list of src. The node is
-    // added at the beginning
-    struct AdjListNode* newNode =
-            newAdjListNode(dest, weight);
-    newNode->next = graph->array[src].head;
-    graph->array[src].head = newNode;
-
-    // Since graph is undirected,
-    // add an edge from dest to src also
-    newNode = newAdjListNode(src, weight);
-    newNode->next = graph->array[dest].head;
-    graph->array[dest].head = newNode;
-}
-
-// Structure to represent a min heap node
-struct MinHeapNode
-{
-    int v;
-    double dist;
-};
-
-// Structure to represent a min heap
-struct MinHeap
-{
+    // prints shortest path from s
+    double shortestPath(int s, int t, double exchange_amount);
     
-    // Number of heap nodes present currently
-    int size;
-
-    // Capacity of min heap
-    int capacity;
-
-    // This is needed for decreaseKey()
-    int *pos;
-    struct MinHeapNode **array;
+    //generates a random allocation of liquidity
+    void randomAllocation(double totalLiquidity, int numTokens);
+    
+    //calculates total loss (gas + transaction fees + slippage) given an orderbook
+    double lossFunction(vector<Order> orderBook);
 };
 
-// A utility function to create a
-// new Min Heap Node
-struct MinHeapNode* newMinHeapNode(int v,
-                                double dist)
+// Allocates memory for adjacency list
+Graph::Graph(int V)
 {
-    struct MinHeapNode* minHeapNode =
-        (struct MinHeapNode*)
-    malloc(sizeof(struct MinHeapNode));
-    minHeapNode->v = v;
-    minHeapNode->dist = dist;
-    return minHeapNode;
+    this->V = V;
+    adj = new list<iPair> [V];
 }
 
-// A utility function to create a Min Heap
-struct MinHeap* createMinHeap(int capacity)
+void Graph::addEdge(int u, int v, double w)
 {
-    struct MinHeap* minHeap =
-        (struct MinHeap*)
-    malloc(sizeof(struct MinHeap));
-    minHeap->pos = (int *)malloc(
-            capacity * sizeof(int));
-    minHeap->size = 0;
-    minHeap->capacity = capacity;
-    minHeap->array =
-        (struct MinHeapNode**)
-                malloc(capacity *
-    sizeof(struct MinHeapNode*));
-    return minHeap;
-}
-
-// A utility function to swap two
-// nodes of min heap.
-// Needed for min heapify
-void swapMinHeapNode(struct MinHeapNode** a,
-                    struct MinHeapNode** b)
-{
-    struct MinHeapNode* t = *a;
-    *a = *b;
-    *b = t;
-}
-
-// A standard function to
-// heapify at given idx
-// This function also updates
-// position of nodes when they are swapped.
-// Position is needed for decreaseKey()
-void minHeapify(struct MinHeap* minHeap,
-                                int idx)
-{
-    int smallest, left, right;
-    smallest = idx;
-    left = 2 * idx + 1;
-    right = 2 * idx + 2;
-
-    if (left < minHeap->size &&
-        minHeap->array[left]->dist <
-        minHeap->array[smallest]->dist )
-    smallest = left;
-
-    if (right < minHeap->size &&
-        minHeap->array[right]->dist <
-        minHeap->array[smallest]->dist )
-    smallest = right;
-
-    if (smallest != idx)
-    {
-        // The nodes to be swapped in min heap
-        MinHeapNode *smallestNode =
-            minHeap->array[smallest];
-        MinHeapNode *idxNode =
-                minHeap->array[idx];
-
-        // Swap positions
-        minHeap->pos[smallestNode->v] = idx;
-        minHeap->pos[idxNode->v] = smallest;
-
-        // Swap nodes
-        swapMinHeapNode(&minHeap->array[smallest],
-                        &minHeap->array[idx]);
-
-        minHeapify(minHeap, smallest);
-    }
-}
-
-// A utility function to check if
-// the given minHeap is ampty or not
-int isEmpty(struct MinHeap* minHeap)
-{
-    return minHeap->size == 0;
-}
-
-// Standard function to extract
-// minimum node from heap
-struct MinHeapNode* extractMin(struct MinHeap*
-                                minHeap)
-{
-    if (isEmpty(minHeap))
-        return NULL;
-
-    // Store the root node
-    struct MinHeapNode* root =
-                minHeap->array[0];
-
-    // Replace root node with last node
-    struct MinHeapNode* lastNode =
-        minHeap->array[minHeap->size - 1];
-    minHeap->array[0] = lastNode;
-
-    // Update position of last node
-    minHeap->pos[root->v] = minHeap->size-1;
-    minHeap->pos[lastNode->v] = 0;
-
-    // Reduce heap size and heapify root
-    --minHeap->size;
-    minHeapify(minHeap, 0);
-
-    return root;
-}
-
-// Function to decreasy dist value
-// of a given vertex v. This function
-// uses pos[] of min heap to get the
-// current index of node in min heap
-void decreaseKey(struct MinHeap* minHeap,
-                        int v, double dist)
-{
-    // Get the index of v in heap array
-    int i = minHeap->pos[v];
-
-    // Get the node and update its dist value
-    minHeap->array[i]->dist = dist;
-
-    // Travel up while the complete
-    // tree is not hepified.
-    // This is a O(Logn) loop
-    while (i && minHeap->array[i]->dist <
-        minHeap->array[(i - 1) / 2]->dist)
-    {
-        // Swap this node with its parent
-        minHeap->pos[minHeap->array[i]->v] =
-                                    (i-1)/2;
-        minHeap->pos[minHeap->array[
-                            (i-1)/2]->v] = i;
-        swapMinHeapNode(&minHeap->array[i],
-                &minHeap->array[(i - 1) / 2]);
-
-        // move to parent index
-        i = (i - 1) / 2;
-    }
-}
-
-// A utility function to check if a given vertex
-// 'v' is in min heap or not
-bool isInMinHeap(struct MinHeap *minHeap, int v)
-{
-if (minHeap->pos[v] < minHeap->size)
-    return true;
-return false;
-}
-
-// A utility function used to print the solution
-void printArr(double dist[], int n)
-{
-    printf("Vertex Distance from Source\n");
-    for (int i = 0; i < n; ++i)
-        cout << i << "   " << dist[i] << "\n";
+    adj[u].push_back(make_pair(v, w));
+    adj[v].push_back(make_pair(u, w));
 }
 
 double calculateSlippage(double liquidity, double q1) {
@@ -289,130 +83,149 @@ double calculateSlippage(double liquidity, double q1) {
     return ( q1 - (r*q1)/(r+q1) );
 }
 
-// The main function that calculates
-// distances of shortest paths from src to all
-// vertices. It is a O(ELogV) function
-double dijkstra(struct Graph* graph, double exchange_amount, int src, int target)
+// Prints shortest paths from src to all other vertices
+double Graph::shortestPath(int src, int target, double exchange_amount)
 {
+    // Create a priority queue to store vertices that
+    // are being preprocessed. This is weird syntax in C++.
+    // Refer below link for details of this syntax
+    // https://www.geeksforgeeks.org/implement-min-heap-using-stl/
+    priority_queue< iPair, vector <iPair> , greater<iPair> > pq;
+
+    // Create a vector for distances and initialize all
+    // distances/slippage as infinite (INF)
+    vector<double> dist(V, INF);
+    vector<double> slip(V, INF);
     
-    // Get the number of vertices in graph
-    int V = graph->V;
-
-    // dist values used to pick
-    // minimum weight edge in cut
-    double dist[V];
-    double slip[V];
-
-    // minHeap represents set E
-    struct MinHeap* minHeap = createMinHeap(V);
-
-    // Initialize min heap with all
-    // vertices. dist value of all vertices
-    for (int v = 0; v < V; ++v)
-    {
-        dist[v] = INT_MAX;
-        slip[v] = INT_MAX;
-        minHeap->array[v] = newMinHeapNode(v,
-                                    dist[v]);
-        minHeap->pos[v] = v;
-    }
-
-    // Make dist value of src vertex
-    // as 0 so that it is extracted first
-    minHeap->array[src] =
-        newMinHeapNode(src, dist[src]);
-    minHeap->pos[src] = src;
+    // Insert source itself in priority queue and initialize
+    // its distance/slippage as 0.
+    pq.push(make_pair(0, src));
     dist[src] = 0;
     slip[src] = 0;
-    decreaseKey(minHeap, src, dist[src]);
 
-    // Initially size of min heap is equal to V
-    minHeap->size = V;
-
-    // In the followin loop,
-    // min heap contains all nodes
-    // whose shortest distance
-    // is not yet finalized.
-    while (!isEmpty(minHeap))
+    /* Looping till priority queue becomes empty (or all
+    distances are not finalized) */
+    while (!pq.empty())
     {
-        // Extract the vertex with
-        // minimum distance value
-        struct MinHeapNode* minHeapNode =
-                    extractMin(minHeap);
-    
-        // Store the extracted vertex number
-        int u = minHeapNode->v;
-        
-        //temp distance holder
-        double d;
-        double s;
+        // The first vertex in pair is the minimum distance
+        // vertex, extract it from priority queue.
+        // vertex label is stored in second of pair (it
+        // has to be done this way to keep the vertices
+        // sorted distance (distance must be first item
+        // in pair)
+        int u = pq.top().second;
+        pq.pop();
 
-        // Traverse through all adjacent
-        // vertices of u (the extracted
-        // vertex) and update
-        // their distance values
-        struct AdjListNode* pCrawl =
-                    graph->array[u].head;
-        while (pCrawl != NULL)
+        // 'i' is used to get all adjacent vertices of a vertex
+        list< pair<int, int> >::iterator i;
+        for (i = adj[u].begin(); i != adj[u].end(); ++i)
         {
-            int v = pCrawl->dest;
+            // Get vertex label and weight of current adjacent
+            // of u.
+            int v = (*i).first;
+            double weight = (*i).second;
             
             //calculates just slippage loss
-            s = calculateSlippage(pCrawl->weight, exchange_amount - slip[u]);
-            
+            double s = calculateSlippage(weight, exchange_amount - slip[u]);
             //calculate distance (includes transaction fees and gas)
-            d = s + slip[u] + 10 + .003 * (exchange_amount - slip[u]);
+            double d = s + slip[u] + 10 + .003 * (exchange_amount - slip[u]);
 
-            // If shortest distance to v is
-            // not finalized yet, and distance to v
-            // through u is less than its
-            // previously calculated distance
-            if (isInMinHeap(minHeap, v) &&
-                    dist[u] != INT_MAX &&
-            d + dist[u] < dist[v])
+            // If there is shorted path to v through u.
+            if (dist[v] > dist[u] + weight)
             {
+                // Updating distance of v
                 dist[v] = dist[u] + d;
                 slip[v] = slip[u] + s;
-
-                // update distance
-                // value in min heap also
-                decreaseKey(minHeap, v, dist[v]);
+                pq.push(make_pair(dist[v], v));
                 if (v == target){
                     return dist[v];
                 }
             }
-            pCrawl = pCrawl->next;
         }
     }
-
-    // print the calculated shortest distances
-    //printArr(dist, V);
     return -1;
 }
 
-struct Order {
-    int src;
-    int target;
-    double amount;
-};
+int maxEdges(int numTokens) {
+    return numTokens*(numTokens-1)/2;
+}
 
-double lossFunction(struct Graph* graph, vector<Order> orderBook) {
+void Graph::randomAllocation(double totalLiquidity, int numTokens){
+    //creates an instance of an engine.
+    random_device rnd_device;
+    // Specify the engine and distribution.
+    mt19937 mersenne_engine {rnd_device()};  // Generates random integers
+    
+    uniform_int_distribution<double> dist {1, 52};
+    
+    auto gen = [&dist, &mersenne_engine](){
+        return dist(mersenne_engine);
+    };
+    
+    //calculates max number of edges for a graph with numTokens (n choose 2)
+    int numEdges = maxEdges(numTokens);
+
+    vector<double> vec(numEdges);
+    generate(begin(vec), end(vec), gen);
+    
+    //finds the sum of the random vector to help normalize
+    double div = accumulate(vec.begin(), vec.end(), 0);
+    
+    //divides the vector by scalar (div); this makes the sum = 1
+    transform(vec.begin(), vec.end(), vec.begin(), [div](double &c){ return c/div; });
+    
+    //multiplies the vector by scalar (totalLiquidity); this makes sum of weights to totalLiquidity
+    transform(vec.begin(), vec.end(), vec.begin(), [totalLiquidity](double &c){ return c*totalLiquidity; });
+    
+    int index = 0;
+    for (int i = 0; i < numTokens - 1; ++i) {
+        for (int j = i + 1; j < numTokens; ++j){
+            addEdge(i, j, vec[index]);
+            ++index;
+        }
+    }
+}
+
+double Graph::lossFunction(vector<Order> orderBook) {
     double loss = 0;
     
     for (size_t s = 0; s < orderBook.size(); ++s) {
-       loss += dijkstra(graph, orderBook[s].amount, orderBook[s].src, orderBook[s].target);
+       loss += shortestPath(orderBook[s].src, orderBook[s].target, orderBook[s].amount);
     }
     
     return loss;
 }
 
+/*Graph mutate(struct Graph* graph, double totalLiquidity){
+    struct Graph* mutant = createGraph(graph->V);
+    
+    int e1_src = rand() % graph->V;
+    int e1_target = rand() % graph->V;
+    
+    int e2_src = rand() % graph->V;
+    int e2_target = rand() % graph->V;
+    
+    double mut_amount = totalLiquidity/(graph->V*100);
+    
+    double temp;
+    
+    if (graph->array[e1_src].head->weight - mut_amount <= 0){
+        addEdge(mutant, e1, e2, 0);
+        addEdge(mutant, e1, e2, graph->array[e1].head->weight + graph->array[e2].head->weight);
+    }
+    else {
+        addEdge(mutant, e1, e2, 0)
+        addEdge(mutant, e1, e2, 0)
+    }
+    
+}*/
 
-// Driver program to test above functions
+// Driver program to test methods of graph class
 int main()
 {
-    // create the graph given in above fugure
-    int V = 3;
-    struct Graph* graph = createGraph(V);
+    int numTokens = 3;
+    double totalLiquidity = 10000;
+    Graph graph = Graph(numTokens);
     //TODO: Maybe create a variable to specify order book size for space optimization (use .resize())
     vector<Order> orderBook;
     //initialize order book; TODO: find a more efficient way of doing this
@@ -420,12 +233,11 @@ int main()
     orderBook.push_back(Order{1, 2, 100});
     orderBook.push_back(Order{1, 2, 100});
     
-    //add edges
-    addEdge(graph, 0, 1, 1000);
-    addEdge(graph, 1, 2, 1000);
-    addEdge(graph, 2, 0, 1000);
+    graph.randomAllocation(totalLiquidity, numTokens);
+    
+    //cout << graph.shortestPath(0, 1, 100) << "\n";
 
-    cout << lossFunction(graph, orderBook) << "\n";
+    cout << graph.lossFunction(orderBook) << "\n";
 
     return 0;
 }
