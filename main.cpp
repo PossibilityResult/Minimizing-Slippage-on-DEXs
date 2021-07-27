@@ -26,7 +26,7 @@ using namespace std;
 # define INF 0x3f3f3f3f
 
 // iPair ==> Integer Pair
-typedef pair<int, int> iPair;
+typedef pair<int, double> iPair;
 
 
 struct Order {
@@ -44,10 +44,12 @@ class Graph
 
     // In a weighted graph, we need to store vertex
     // and weight pair for every edge
-    list< pair<int, int> > *adj;
+    list< pair<int, double> > *adj;
 
 public:
     Graph(int V); // Constructor
+    
+    Graph(const Graph &g); // copy constructor
 
     // function to add an edge to graph
     void addEdge(int u, int v, double w);
@@ -60,6 +62,7 @@ public:
     
     //calculates total loss (gas + transaction fees + slippage) given an orderbook
     double lossFunction(vector<Order> orderBook);
+    
 };
 
 // Allocates memory for adjacency list
@@ -67,6 +70,19 @@ Graph::Graph(int V)
 {
     this->V = V;
     adj = new list<iPair> [V];
+}
+
+//TODO: FINISH COPY CONSTRUCTOR
+Graph::Graph(const Graph &g)
+{
+    this->V = g.V;
+    adj = new list<iPair> [V];
+    list< pair<int, double> >::iterator i;
+    for (int s = 0; s < V; ++s){
+        for (i = (g.adj[s]).begin(); i != (g.adj[s]).end(); ++i){
+            adj[s].push_back(make_pair((*i).first, (*i).second));
+        }
+    }
 }
 
 void Graph::addEdge(int u, int v, double w)
@@ -117,7 +133,7 @@ double Graph::shortestPath(int src, int target, double exchange_amount)
         pq.pop();
 
         // 'i' is used to get all adjacent vertices of a vertex
-        list< pair<int, int> >::iterator i;
+        list< pair<int, double> >::iterator i;
         for (i = adj[u].begin(); i != adj[u].end(); ++i)
         {
             // Get vertex label and weight of current adjacent
@@ -196,8 +212,10 @@ double Graph::lossFunction(vector<Order> orderBook) {
     return loss;
 }
 
-/*Graph mutate(struct Graph* graph, double totalLiquidity){
-    struct Graph* mutant = createGraph(graph->V);
+//Returns a mutant graph
+
+/*Graph mutate(Graph g, double totalLiquidity){
+    Graph mutant = Graph(g);
     
     int e1_src = rand() % graph->V;
     int e1_target = rand() % graph->V;
