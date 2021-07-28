@@ -21,6 +21,11 @@
 #include <list>
 #include <functional>
 #include <queue>
+#include <cstdlib>   // rand and srand
+#include <ctime>
+
+
+//TODO: CREATE A VECTOR A VECTOR OF PAIRS OF POINTERS TO EDGES
 
 using namespace std;
 # define INF 0x3f3f3f3f
@@ -35,18 +40,21 @@ struct Order {
     double amount;
 };
 
-
 // This class represents a directed graph using
 // adjacency list representation
 class Graph
 {
+public:
     int V; // No. of vertices
 
     // In a weighted graph, we need to store vertex
     // and weight pair for every edge
     list< pair<int, double> > *adj;
+    
+    //vector<vector<double> > adjMat;
+    
+    vector< pair< pair<int,double>*, pair<int,double>* > > edgeList;
 
-public:
     Graph(int V); // Constructor
     
     Graph(const Graph &g); // copy constructor
@@ -63,6 +71,8 @@ public:
     //calculates total loss (gas + transaction fees + slippage) given an orderbook
     double lossFunction(vector<Order> orderBook);
     
+    //sets the adj from the
+    //void setAdj();
 };
 
 // Allocates memory for adjacency list
@@ -70,6 +80,7 @@ Graph::Graph(int V)
 {
     this->V = V;
     adj = new list<iPair> [V];
+    //adjMat.resize(V, vector<vector<tileMap> >(V, 0);
 }
 
 //TODO: FINISH COPY CONSTRUCTOR
@@ -77,19 +88,26 @@ Graph::Graph(const Graph &g)
 {
     this->V = g.V;
     adj = new list<iPair> [V];
-    list< pair<int, double> >::iterator i;
-    for (int s = 0; s < V; ++s){
-        for (i = (g.adj[s]).begin(); i != (g.adj[s]).end(); ++i){
-            adj[s].push_back(make_pair((*i).first, (*i).second));
-        }
+    
+    for (int i = 0; i < V; ++i){
+        this->addEdge(g.edgeList[i].first->first, g.edgeList[i].second->first, g.edgeList[i].first->second);
+        /*cout << g.edgeList[i].first->first << "\n";
+        cout << g.edgeList[i].second->first << "\n";
+        cout << g.edgeList[i].first->second << "\n";*/
     }
 }
+
 
 void Graph::addEdge(int u, int v, double w)
 {
     adj[u].push_back(make_pair(v, w));
     adj[v].push_back(make_pair(u, w));
+    
+    edgeList.push_back(make_pair(&adj[u].back(), &adj[v].back()));
+    //adjMat[u][v] = w;
+    //adjMat[v][u] = w;
 }
+
 
 double calculateSlippage(double liquidity, double q1) {
     double r = liquidity/2;
@@ -99,13 +117,12 @@ double calculateSlippage(double liquidity, double q1) {
     return ( q1 - (r*q1)/(r+q1) );
 }
 
+
 // Prints shortest paths from src to all other vertices
 double Graph::shortestPath(int src, int target, double exchange_amount)
 {
     // Create a priority queue to store vertices that
-    // are being preprocessed. This is weird syntax in C++.
-    // Refer below link for details of this syntax
-    // https://www.geeksforgeeks.org/implement-min-heap-using-stl/
+    // are being preprocessed.
     priority_queue< iPair, vector <iPair> , greater<iPair> > pq;
 
     // Create a vector for distances and initialize all
@@ -153,7 +170,7 @@ double Graph::shortestPath(int src, int target, double exchange_amount)
                 dist[v] = dist[u] + d;
                 slip[v] = slip[u] + s;
                 pq.push(make_pair(dist[v], v));
-                if (v == target){
+                if (v == target) {
                     return dist[v];
                 }
             }
@@ -162,9 +179,11 @@ double Graph::shortestPath(int src, int target, double exchange_amount)
     return -1;
 }
 
+
 int maxEdges(int numTokens) {
     return numTokens*(numTokens-1)/2;
 }
+
 
 void Graph::randomAllocation(double totalLiquidity, int numTokens){
     //creates an instance of an engine.
@@ -202,6 +221,7 @@ void Graph::randomAllocation(double totalLiquidity, int numTokens){
     }
 }
 
+
 double Graph::lossFunction(vector<Order> orderBook) {
     double loss = 0;
     
@@ -212,31 +232,71 @@ double Graph::lossFunction(vector<Order> orderBook) {
     return loss;
 }
 
+
 //Returns a mutant graph
 
-/*Graph mutate(Graph g, double totalLiquidity){
+Graph mutate(Graph &g, double totalLiquidity){
     Graph mutant = Graph(g);
     
-    int e1_src = rand() % graph->V;
-    int e1_target = rand() % graph->V;
+    // Get the system time.
+    unsigned seed = static_cast<unsigned>(time(0));
     
-    int e2_src = rand() % graph->V;
-    int e2_target = rand() % graph->V;
+    // Seed the random number generator.
+    srand(seed);
     
-    double mut_amount = totalLiquidity/(graph->V*100);
+    int numEdges = static_cast<int>(mutant.edgeList.size());
+    
+    int i1 = rand() % numEdges;
+
+    int i2 = rand() % numEdges;
+    
+    /*if (i1 == i2) {
+        i1 += 1;
+        i1 = i1 % numEdges;
+    }*/
+    
+    double mut_amount = totalLiquidity/(numEdges*50);
     
     double temp;
     
-    if (graph->array[e1_src].head->weight - mut_amount <= 0){
-        addEdge(mutant, e1, e2, 0);
-        addEdge(mutant, e1, e2, graph->array[e1].head->weight + graph->array[e2].head->weight);
+    pair< pair<int,double>*, pair<int,double>* >* e1 = &mutant.edgeList[i1];
+    pair< pair<int,double>*, pair<int,double>* >* e2 = &mutant.edgeList[i2];
+    if (e1->first->second - mut_amount <= 0){
+        temp = e1->first->second;
+        e1->first->second = 0;
+        e1->second->second = 0;
+        //cout << "check1" << "\n";
+        e2->first->second += temp;
+        e2->second->second += temp;
     }
     else {
-        addEdge(mutant, e1, e2, 0)
-        addEdge(mutant, e1, e2, 0)
+        //cout << (&mutant.edgeList[i1])->first->second << "\n";
+        
+        e1->first->second -= mut_amount;
+        e1->second->second -= mut_amount;
+        
+        //cout << "check2" << "\n";
+        //cout << (&mutant.edgeList[i1])->first->second << "\n";
+        
+        e2->first->second += mut_amount;
+        e2->second->second += mut_amount;
     }
+    //cout << (&mutant.edgeList[i1])->first->second << "\n";
+    //cout << (&g.edgeList[i1])->first->second << "\n";
+    return mutant;
+}
+
+vector<Graph> initPopulation(int numTokens, int numOrgs, int totalLiquidity) {
+    vector<Graph> population;
+    population.resize(numOrgs, Graph(numTokens));
     
-}*/
+    for (size_t s = 0; s < numOrgs; ++s) {
+        population[s].randomAllocation(totalLiquidity, numTokens);
+        cout << (&population[s].edgeList[0])->first->second << "\n";
+    }
+    return population;
+    
+}
 
 // Driver program to test methods of graph class
 int main()
@@ -255,7 +315,19 @@ int main()
     
     //cout << graph.shortestPath(0, 1, 100) << "\n";
 
-    cout << graph.lossFunction(orderBook) << "\n";
+    //cout << graph.lossFunction(orderBook) << "\n";
+    
+    Graph sec = Graph(graph);
+    
+    Graph mut = mutate(sec, totalLiquidity);
+    
+    int numOrgs = 100;
+    
+    initPopulation(numTokens, numOrgs, totalLiquidity); //TODO: FIXXX!!!
+    //cout << (&mut.edgeList[0])->first->second << "\n";
+    //cout << (&sec.edgeList[0])->first->second << "\n";
+    //cout << sec.lossFunction(orderBook) << "\n";
+    //cout << mut.lossFunction(orderBook) << "\n";
 
     return 0;
 }
