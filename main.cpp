@@ -1,4 +1,4 @@
-//
+
 //  pqdij.cpp
 //  dijkstratest
 //
@@ -52,8 +52,9 @@ public:
     list< pair<int, double> > *adj;
     
     //vector<vector<double> > adjMat;
-    
     vector< pair< pair<int,double>*, pair<int,double>* > > edgeList;
+    
+    double costs;
 
     Graph(int V); // Constructor
     
@@ -69,10 +70,7 @@ public:
     void randomAllocation(double totalLiquidity, int numTokens);
     
     //calculates total loss (gas + transaction fees + slippage) given an orderbook
-    double lossFunction(vector<Order> orderBook);
-    
-    //sets the adj from the
-    //void setAdj();
+    void lossFunction(vector<Order> orderBook);
 };
 
 // Allocates memory for adjacency list
@@ -80,7 +78,6 @@ Graph::Graph(int V)
 {
     this->V = V;
     adj = new list<iPair> [V];
-    //adjMat.resize(V, vector<vector<tileMap> >(V, 0);
 }
 
 //TODO: FINISH COPY CONSTRUCTOR
@@ -89,11 +86,10 @@ Graph::Graph(const Graph &g)
     this->V = g.V;
     adj = new list<iPair> [V];
     
-    for (int i = 0; i < V; ++i){
-        this->addEdge(g.edgeList[i].first->first, g.edgeList[i].second->first, g.edgeList[i].first->second);
-        /*cout << g.edgeList[i].first->first << "\n";
-        cout << g.edgeList[i].second->first << "\n";
-        cout << g.edgeList[i].first->second << "\n";*/
+    if (g.edgeList.size() > 0) {
+        for (int i = 0; i < V; ++i){
+            this->addEdge(g.edgeList[i].first->first, g.edgeList[i].second->first, g.edgeList[i].first->second);
+        }
     }
 }
 
@@ -222,19 +218,20 @@ void Graph::randomAllocation(double totalLiquidity, int numTokens){
 }
 
 
-double Graph::lossFunction(vector<Order> orderBook) {
+void Graph::lossFunction(vector<Order> orderBook) {
     double loss = 0;
     
     for (size_t s = 0; s < orderBook.size(); ++s) {
        loss += shortestPath(orderBook[s].src, orderBook[s].target, orderBook[s].amount);
     }
-    
-    return loss;
+    costs = loss;
 }
 
 
-//Returns a mutant graph
 
+
+//Returns a mutant graph
+//TODO: TEST WHETHER RANDOM SEED RETURNS SAME EDGES for every mutation
 Graph mutate(Graph &g, double totalLiquidity){
     Graph mutant = Graph(g);
     
@@ -247,14 +244,11 @@ Graph mutate(Graph &g, double totalLiquidity){
     int numEdges = static_cast<int>(mutant.edgeList.size());
     
     int i1 = rand() % numEdges;
+    cout << i1 << "\n";
 
     int i2 = rand() % numEdges;
-    
-    /*if (i1 == i2) {
-        i1 += 1;
-        i1 = i1 % numEdges;
-    }*/
-    
+    cout << i2 << "\n\n";
+
     double mut_amount = totalLiquidity/(numEdges*50);
     
     double temp;
@@ -265,45 +259,86 @@ Graph mutate(Graph &g, double totalLiquidity){
         temp = e1->first->second;
         e1->first->second = 0;
         e1->second->second = 0;
-        //cout << "check1" << "\n";
+
         e2->first->second += temp;
         e2->second->second += temp;
     }
     else {
-        //cout << (&mutant.edgeList[i1])->first->second << "\n";
-        
         e1->first->second -= mut_amount;
         e1->second->second -= mut_amount;
-        
-        //cout << "check2" << "\n";
-        //cout << (&mutant.edgeList[i1])->first->second << "\n";
         
         e2->first->second += mut_amount;
         e2->second->second += mut_amount;
     }
-    //cout << (&mutant.edgeList[i1])->first->second << "\n";
-    //cout << (&g.edgeList[i1])->first->second << "\n";
     return mutant;
 }
 
 vector<Graph> initPopulation(int numTokens, int numOrgs, int totalLiquidity) {
     vector<Graph> population;
-    population.resize(numOrgs, Graph(numTokens));
+    Graph temp(3);
+    for (int s = 0; s < numOrgs; ++s) {
+        temp = Graph(numTokens);
+        population.push_back(temp);
+    }
     
-    for (size_t s = 0; s < numOrgs; ++s) {
+    for (int s = 0; s < numOrgs; ++s) {
         population[s].randomAllocation(totalLiquidity, numTokens);
-        cout << (&population[s].edgeList[0])->first->second << "\n";
+        //cout << (&population[s]->edgeList[0])->first->second << "\n";
     }
     return population;
-    
 }
+
+/*void destructor(vector<Graph> &population) {
+    for (size_t s = 0; s < population.size(); ++s) {
+        delete population[s];
+        population[s] = nullptr;
+    }
+}*/
+
+struct comp {
+    bool operator()(Graph a, Graph b) {
+        return a.costs < b.costs;
+    }
+};
+
+vector< Graph > scoring(vector<Graph> &population, vector<Order> orderbook) {
+    double loss;
+    double totalLoss = 0;
+    for (size_t s = 0; s < population.size(); ++s) {
+        population[s].lossFunction(orderbook);
+        loss = population[s].costs;
+        totalLoss += loss;
+    }
+    cout << "Average Total Cost: " << totalLoss/population.size() << "\n";
+    sort(population.begin(), population.end(), comp());
+    cout << "Lowest Cost: " << population[0].costs << "\n\n";
+    return population;
+}
+
+vector<Graph> selection(vector<Graph> &population, vector<Order> orderbook, double totalLiquidity) {
+    vector<Graph> scoredPopulation = scoring(population, orderbook);
+    vector<Graph> newPopulation;
+    for (size_t s = 0; s < population.size() - 80; ++s) {
+        newPopulation.push_back(Graph(population[s]));
+    }
+    for (size_t s = 0; s < 40; ++s) {
+        for (size_t s = 0; s < 2; ++s) {
+            newPopulation.push_back(mutate(population[s], totalLiquidity));
+        }
+    }
+    return population;
+}
+
+
 
 // Driver program to test methods of graph class
 int main()
 {
     int numTokens = 3;
     double totalLiquidity = 10000;
-    Graph graph = Graph(numTokens);
+    int numOrgs = 100;
+    int numGens = 10;
+    
     //TODO: Maybe create a variable to specify order book size for space optimization (use .resize())
     vector<Order> orderBook;
     //initialize order book; TODO: find a more efficient way of doing this
@@ -311,23 +346,14 @@ int main()
     orderBook.push_back(Order{1, 2, 100});
     orderBook.push_back(Order{1, 2, 100});
     
-    graph.randomAllocation(totalLiquidity, numTokens);
     
-    //cout << graph.shortestPath(0, 1, 100) << "\n";
-
-    //cout << graph.lossFunction(orderBook) << "\n";
+    vector<Graph> population = initPopulation(numTokens, numOrgs, totalLiquidity);
     
-    Graph sec = Graph(graph);
-    
-    Graph mut = mutate(sec, totalLiquidity);
-    
-    int numOrgs = 100;
-    
-    initPopulation(numTokens, numOrgs, totalLiquidity); //TODO: FIXXX!!!
-    //cout << (&mut.edgeList[0])->first->second << "\n";
-    //cout << (&sec.edgeList[0])->first->second << "\n";
-    //cout << sec.lossFunction(orderBook) << "\n";
-    //cout << mut.lossFunction(orderBook) << "\n";
-
+    for (int i = 0; i < numGens; ++i) {
+        cout << "Generation " << i << "\n";
+        population = selection(population, orderBook, totalLiquidity);
+    }
+    //destructor(population);
     return 0;
 }
+
