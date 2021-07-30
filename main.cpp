@@ -1,4 +1,4 @@
-
+//
 //  pqdij.cpp
 //  dijkstratest
 //
@@ -23,6 +23,7 @@
 #include <queue>
 #include <cstdlib>   // rand and srand
 #include <ctime>
+#include <unordered_map>
 
 
 //TODO: CREATE A VECTOR A VECTOR OF PAIRS OF POINTERS TO EDGES
@@ -49,9 +50,11 @@ public:
 
     // In a weighted graph, we need to store vertex
     // and weight pair for every edge
-    list< pair<int, double> > *adj;
+    list<pair <int, double> > *adj;
     
-    //vector<vector<double> > adjMat;
+    //unordered_map<pair<int, int>, double> weights;
+    
+    
     vector< pair< pair<int,double>*, pair<int,double>* > > edgeList;
     
     double costs;
@@ -235,21 +238,17 @@ void Graph::lossFunction(vector<Order> orderBook) {
 Graph mutate(Graph &g, double totalLiquidity){
     Graph mutant = Graph(g);
     
-    // Get the system time.
-    unsigned seed = static_cast<unsigned>(time(0));
-    
-    // Seed the random number generator.
-    srand(seed);
+    std::random_device rd;     // only used once to initialise (seed) engine
+    std::mt19937 rng(rd());    // random-number engine used (Mersenne-Twister in this case)
+    std::uniform_int_distribution<int> uni(0,g.V - 1); // guaranteed unbiased
     
     int numEdges = static_cast<int>(mutant.edgeList.size());
     
-    int i1 = rand() % numEdges;
-    cout << i1 << "\n";
+    int i1 = uni(rng);
 
-    int i2 = rand() % numEdges;
-    cout << i2 << "\n\n";
+    int i2 = uni(rng);
 
-    double mut_amount = totalLiquidity/(numEdges*50);
+    double mut_amount = totalLiquidity/(numEdges*1000);
     
     double temp;
     
@@ -275,7 +274,7 @@ Graph mutate(Graph &g, double totalLiquidity){
 
 vector<Graph> initPopulation(int numTokens, int numOrgs, int totalLiquidity) {
     vector<Graph> population;
-    Graph temp(3);
+    Graph temp(numTokens);
     for (int s = 0; s < numOrgs; ++s) {
         temp = Graph(numTokens);
         population.push_back(temp);
@@ -301,51 +300,87 @@ struct comp {
     }
 };
 
-vector< Graph > scoring(vector<Graph> &population, vector<Order> orderbook) {
+struct comp2 {
+    bool operator()(pair<size_t, double> a, pair<size_t, double> b) {
+        return a.second < b.second;
+    }
+};
+
+
+/*vector< Graph > scoring(vector<Graph> &population, vector<Order> orderbook) {
     double loss;
     double totalLoss = 0;
+    //vector<pair<size_t, double> > lookup(population.size());
     for (size_t s = 0; s < population.size(); ++s) {
         population[s].lossFunction(orderbook);
         loss = population[s].costs;
+       // lookup[s].first = s;
+        //lookup[s].second = loss;
         totalLoss += loss;
     }
     cout << "Average Total Cost: " << totalLoss/population.size() << "\n";
     sort(population.begin(), population.end(), comp());
+    //sort(lookup.begin(), lookup.end(), comp2());
     cout << "Lowest Cost: " << population[0].costs << "\n\n";
     return population;
+}*/
+
+vector<pair<size_t, double> > scoring(vector<Graph> &population, vector<Order> orderbook) {
+    double loss;
+    double totalLoss = 0;
+    vector<pair<size_t, double> > lookup(population.size());
+    for (size_t s = 0; s < population.size(); ++s) {
+        population[s].lossFunction(orderbook);
+        loss = population[s].costs;
+        lookup[s].first = s;
+        lookup[s].second = loss;
+        //cout << s << " : " << loss << "\n";
+        totalLoss += loss;
+    }
+    double averageLoss = totalLoss/static_cast<int>(population.size());
+    cout << "Average Total Cost: " << averageLoss << "\n";
+    //sort(population.begin(), population.end(), comp());
+    sort(lookup.begin(), lookup.end(), comp2());
+    cout << "Lowest Cost: " << population[lookup[0].first].costs << "\n\n";
+    return lookup;
 }
 
 vector<Graph> selection(vector<Graph> &population, vector<Order> orderbook, double totalLiquidity) {
-    vector<Graph> scoredPopulation = scoring(population, orderbook);
+    vector<pair<size_t, double> > scoredLookup = scoring(population, orderbook);
     vector<Graph> newPopulation;
-    for (size_t s = 0; s < population.size() - 80; ++s) {
-        newPopulation.push_back(Graph(population[s]));
+    for (size_t s = 0; s < population.size() - 90; ++s) {
+        newPopulation.push_back(Graph(population[scoredLookup[s].first]));
     }
-    for (size_t s = 0; s < 40; ++s) {
+    for (size_t s = 0; s < 45; ++s) {
         for (size_t s = 0; s < 2; ++s) {
-            newPopulation.push_back(mutate(population[s], totalLiquidity));
+            newPopulation.push_back(mutate(population[scoredLookup[s].first], totalLiquidity));
         }
     }
-    return population;
+    return newPopulation;
 }
 
+vector<Order> initOrderBookDENSE(int numTokens) {
+    vector<Order> orderbook;
+    int index = 0;
+    for (int i = 0; i < numTokens - 1; ++i) {
+        for (int j = i + 1; j < numTokens; ++j) {
+            orderbook.push_back(Order{i, j, 50});
+            index++;
+        }
+    }
+    return orderbook;
+}
 
 
 // Driver program to test methods of graph class
 int main()
 {
-    int numTokens = 3;
+    int numTokens = 20;
     double totalLiquidity = 10000;
     int numOrgs = 100;
-    int numGens = 10;
+    int numGens = 1000;
     
-    //TODO: Maybe create a variable to specify order book size for space optimization (use .resize())
-    vector<Order> orderBook;
-    //initialize order book; TODO: find a more efficient way of doing this
-    orderBook.push_back(Order{0, 1, 100});
-    orderBook.push_back(Order{1, 2, 100});
-    orderBook.push_back(Order{1, 2, 100});
-    
+    vector<Order> orderBook = initOrderBookDENSE(numTokens);
     
     vector<Graph> population = initPopulation(numTokens, numOrgs, totalLiquidity);
     
@@ -356,4 +391,5 @@ int main()
     //destructor(population);
     return 0;
 }
+
 
