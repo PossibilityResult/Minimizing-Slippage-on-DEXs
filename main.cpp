@@ -90,7 +90,7 @@ Graph::Graph(const Graph &g)
     adj = new list<iPair> [V];
     
     if (g.edgeList.size() > 0) {
-        for (int i = 0; i < V; ++i){
+        for (int i = 0; i < g.edgeList.size(); ++i){
             this->addEdge(g.edgeList[i].first->first, g.edgeList[i].second->first, g.edgeList[i].first->second);
         }
     }
@@ -198,8 +198,8 @@ void Graph::randomAllocation(double totalLiquidity, int numTokens){
     
     //calculates max number of edges for a graph with numTokens (n choose 2)
     int numEdges = maxEdges(numTokens);
-
     vector<double> vec(numEdges);
+    
     generate(begin(vec), end(vec), gen);
     
     //finds the sum of the random vector to help normalize
@@ -212,12 +212,20 @@ void Graph::randomAllocation(double totalLiquidity, int numTokens){
     transform(vec.begin(), vec.end(), vec.begin(), [totalLiquidity](double &c){ return c*totalLiquidity; });
     
     int index = 0;
+    
+    
     for (int i = 0; i < numTokens - 1; ++i) {
         for (int j = i + 1; j < numTokens; ++j){
             addEdge(i, j, vec[index]);
             ++index;
         }
     }
+    /*for (int i = 0; i < numTokens - 1; ++i) {
+        for (int j = i + 1; j < numTokens; ++j) {
+            orderbook.push_back(Order{i, j, 50});
+            index++;
+        }
+    }*/
 }
 
 
@@ -237,18 +245,17 @@ void Graph::lossFunction(vector<Order> orderBook) {
 //TODO: TEST WHETHER RANDOM SEED RETURNS SAME EDGES for every mutation
 Graph mutate(Graph &g, double totalLiquidity){
     Graph mutant = Graph(g);
+    int numEdges = static_cast<int>(mutant.edgeList.size());
     
     std::random_device rd;     // only used once to initialise (seed) engine
     std::mt19937 rng(rd());    // random-number engine used (Mersenne-Twister in this case)
-    std::uniform_int_distribution<int> uni(0,g.V - 1); // guaranteed unbiased
-    
-    int numEdges = static_cast<int>(mutant.edgeList.size());
+    std::uniform_int_distribution<int> uni(0,numEdges - 1); // guaranteed unbiased
     
     int i1 = uni(rng);
 
     int i2 = uni(rng);
 
-    double mut_amount = totalLiquidity/(numEdges*1000);
+    double mut_amount = totalLiquidity/(numEdges*50);
     
     double temp;
     
@@ -348,10 +355,10 @@ vector<pair<size_t, double> > scoring(vector<Graph> &population, vector<Order> o
 vector<Graph> selection(vector<Graph> &population, vector<Order> orderbook, double totalLiquidity) {
     vector<pair<size_t, double> > scoredLookup = scoring(population, orderbook);
     vector<Graph> newPopulation;
-    for (size_t s = 0; s < population.size() - 90; ++s) {
+    for (size_t s = 0; s < population.size() - 96; ++s) {
         newPopulation.push_back(Graph(population[scoredLookup[s].first]));
     }
-    for (size_t s = 0; s < 45; ++s) {
+    for (size_t s = 0; s < 48; ++s) {
         for (size_t s = 0; s < 2; ++s) {
             newPopulation.push_back(mutate(population[scoredLookup[s].first], totalLiquidity));
         }
@@ -376,7 +383,7 @@ vector<Order> initOrderBookDENSE(int numTokens) {
 int main()
 {
     int numTokens = 20;
-    double totalLiquidity = 10000;
+    double totalLiquidity = 1000000;
     int numOrgs = 100;
     int numGens = 1000;
     
@@ -391,5 +398,4 @@ int main()
     //destructor(population);
     return 0;
 }
-
 
