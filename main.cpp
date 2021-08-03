@@ -21,19 +21,12 @@
 #include <list>
 #include <functional>
 #include <queue>
-#include <cstdlib>   // rand and srand
-#include <ctime>
-#include <unordered_map>
-
-
-//TODO: CREATE A VECTOR A VECTOR OF PAIRS OF POINTERS TO EDGES
 
 using namespace std;
 # define INF 0x3f3f3f3f
 
 // iPair ==> Integer Pair
 typedef pair<uint16_t, double> iPair;
-
 
 struct Order {
     uint16_t src;
@@ -51,9 +44,6 @@ public:
     // In a weighted graph, we need to store vertex
     // and weight pair for every edge
     list<pair <uint16_t, double> > *adj;
-    
-    //unordered_map<pair<int, int>, double> weights;
-    
     
     vector< pair< pair<uint16_t, double>*, pair<uint16_t, double>* > > edgeList;
     
@@ -75,19 +65,17 @@ public:
     void randomAllocation(double totalLiquidity, uint16_t numTokens);
     
     //calculates total loss (gas + transaction fees + slippage) given an orderbook
-    void lossFunction(vector<Order> orderBook);
+    double lossFunction(vector<Order> orderBook);
 };
 
 // Allocates memory for adjacency list
-Graph::Graph(uint16_t V)
-{
+Graph::Graph(uint16_t V) {
     this->V = V;
     adj = new list<iPair> [V];
 }
 
 //TODO: FINISH COPY CONSTRUCTOR
-Graph::Graph(const Graph &g)
-{
+Graph::Graph(const Graph &g) {
     this->V = g.V;
     adj = new list<iPair> [V];
     
@@ -98,21 +86,16 @@ Graph::Graph(const Graph &g)
     }
 }
 
-Graph::~Graph(){
+Graph::~Graph() {
     delete[] adj;
 }
 
-
-void Graph::addEdge(uint16_t u, uint16_t v, double w)
-{
+void Graph::addEdge(uint16_t u, uint16_t v, double w) {
     adj[u].push_back(make_pair(v, w));
     adj[v].push_back(make_pair(u, w));
     
     edgeList.push_back(make_pair(&adj[u].back(), &adj[v].back()));
-    //adjMat[u][v] = w;
-    //adjMat[v][u] = w;
 }
-
 
 double calculateSlippage(double liquidity, double q1) {
     double r = liquidity/2;
@@ -121,7 +104,6 @@ double calculateSlippage(double liquidity, double q1) {
     }
     return ( q1 - (r*q1)/(r+q1) );
 }
-
 
 // Prints shortest paths from src to all other vertices
 double Graph::shortestPath(uint16_t src, uint16_t target, double exchange_amount)
@@ -153,7 +135,11 @@ double Graph::shortestPath(uint16_t src, uint16_t target, double exchange_amount
         // in pair)
         uint16_t u = pq.top().second;
         pq.pop();
-
+        
+        if (u == target) {
+            return dist[target];
+        }
+    
         // 'i' is used to get all adjacent vertices of a vertex
         list< pair<uint16_t, double> >::iterator i;
         for (i = adj[u].begin(); i != adj[u].end(); ++i)
@@ -168,29 +154,24 @@ double Graph::shortestPath(uint16_t src, uint16_t target, double exchange_amount
             //calculate distance (includes transaction fees and gas)
             double d = s + slip[u] + 10 + .003 * (exchange_amount - slip[u]);
 
-            // If there is shorted path to v through u.
+            // If there is shorter path to v through u.
             if (dist[v] > dist[u] + weight)
             {
                 // Updating distance of v
                 dist[v] = dist[u] + d;
                 slip[v] = slip[u] + s;
                 pq.push(make_pair(dist[v], v));
-                if (v == target) {
-                    return dist[v];
-                }
             }
         }
     }
-    return -1;
+    return dist[target];
 }
-
 
 uint16_t maxEdges(uint16_t numTokens) {
     return numTokens*(numTokens-1)/2;
 }
 
-
-void Graph::randomAllocation(double totalLiquidity, uint16_t numTokens){
+void Graph::randomAllocation(double totalLiquidity, uint16_t numTokens) {
     //creates an instance of an engine.
     random_device rnd_device;
     // Specify the engine and distribution.
@@ -219,36 +200,25 @@ void Graph::randomAllocation(double totalLiquidity, uint16_t numTokens){
     
     uint16_t index = 0;
     
-    
     for (uint16_t i = 0; i < numTokens - 1; ++i) {
         for (uint16_t j = i + 1; j < numTokens; ++j){
             addEdge(i, j, vec[index]);
             ++index;
         }
     }
-    /*for (int i = 0; i < numTokens - 1; ++i) {
-        for (int j = i + 1; j < numTokens; ++j) {
-            orderbook.push_back(Order{i, j, 50});
-            index++;
-        }
-    }*/
 }
 
 
-void Graph::lossFunction(vector<Order> orderBook) {
+double Graph::lossFunction(vector<Order> orderBook) {
     double loss = 0;
-    
     for (size_t s = 0; s < orderBook.size(); ++s) {
        loss += shortestPath(orderBook[s].src, orderBook[s].target, orderBook[s].amount);
     }
     costs = loss;
+    return loss;
 }
 
-
-
-
 //Returns a mutant graph
-//TODO: TEST WHETHER RANDOM SEED RETURNS SAME EDGES for every mutation
 Graph mutate(Graph &g, double totalLiquidity){
     Graph mutant = Graph(g);
     uint16_t numEdges = static_cast<uint16_t>(mutant.edgeList.size());
@@ -257,14 +227,13 @@ Graph mutate(Graph &g, double totalLiquidity){
     std::mt19937 rng(rd());    // random-number engine used (Mersenne-Twister in this case)
     std::uniform_int_distribution<uint16_t> uni(0,numEdges - 1); // guaranteed unbiased
     
-    for (uint8_t i = 0; i < 2; i++) {
+    //TODO: FIX BUG W/ MUTATION AND HIGH LOSS
+    for (uint8_t i = 0; i < 20; i++) {
     
         uint16_t i1 = uni(rng);
-
         uint16_t i2 = uni(rng);
 
-        double mut_amount = totalLiquidity/(numEdges*25);
-    
+        double mut_amount = totalLiquidity/(numEdges*50);
         double temp;
     
         pair< pair<uint16_t, double>*, pair<uint16_t,double>* >* e1 = &mutant.edgeList[i1];
@@ -290,28 +259,13 @@ Graph mutate(Graph &g, double totalLiquidity){
 
 vector<Graph> initPopulation(uint16_t numTokens, uint16_t numOrgs, double totalLiquidity) {
     vector<Graph> population;
-    for (uint16_t s = 0; s < numOrgs; ++s) {
-        population.push_back(Graph(numTokens));
-    }
+    population.resize(numOrgs, Graph(numTokens));
     
     for (uint16_t s = 0; s < numOrgs; ++s) {
         population[s].randomAllocation(totalLiquidity, numTokens);
-        //cout << (&population[s]->edgeList[0])->first->second << "\n";
     }
     return population;
 }
-
-/*void destructor(vector<Graph> &population) {
-    for (size_t s = 0; s < population.size(); ++s) {
-        delete population[s].adj;
-    }
-}*/
-
-/*struct comp {
-    bool operator()(Graph a, Graph b) {
-        return a.costs < b.costs;
-    }
-};*/
 
 struct comp2 {
     bool operator()(pair<size_t, double> a, pair<size_t, double> b) {
@@ -319,36 +273,14 @@ struct comp2 {
     }
 };
 
-
-/*vector< Graph > scoring(vector<Graph> &population, vector<Order> orderbook) {
-    double loss;
-    double totalLoss = 0;
-    //vector<pair<size_t, double> > lookup(population.size());
-    for (size_t s = 0; s < population.size(); ++s) {
-        population[s].lossFunction(orderbook);
-        loss = population[s].costs;
-       // lookup[s].first = s;
-        //lookup[s].second = loss;
-        totalLoss += loss;
-    }
-    cout << "Average Total Cost: " << totalLoss/population.size() << "\n";
-    sort(population.begin(), population.end(), comp());
-    //sort(lookup.begin(), lookup.end(), comp2());
-    cout << "Lowest Cost: " << population[0].costs << "\n\n";
-    return population;
-}*/
-
 vector<pair<size_t, double> > scoring(vector<Graph> &population, vector<Order> orderbook) {
-    double loss;
     double totalLoss = 0;
+    
     vector<pair<size_t, double> > lookup(population.size());
     for (size_t s = 0; s < population.size(); ++s) {
-        population[s].lossFunction(orderbook);
-        loss = population[s].costs;
         lookup[s].first = s;
-        lookup[s].second = loss;
-        //cout << s << " : " << loss << "\n";
-        totalLoss += loss;
+        lookup[s].second = population[s].lossFunction(orderbook);
+        totalLoss += lookup[s].second;
     }
     double averageLoss = totalLoss/static_cast<uint16_t>(population.size());
     cout << "Average Total Cost: " << averageLoss << "\n";
@@ -358,19 +290,17 @@ vector<pair<size_t, double> > scoring(vector<Graph> &population, vector<Order> o
     return lookup;
 }
 
-vector<Graph> selection(vector<Graph> &population, vector<Order> orderbook, double totalLiquidity) {
+vector<Graph> selection(vector<Graph> &population, vector<Order> orderbook, double totalLiquidity, int numOrgs) {
     vector<pair<size_t, double> > scoredLookup = scoring(population, orderbook);
     vector<Graph> newPopulation;
-    for (size_t s = 0; s < population.size() - 96; ++s) {
+    //TODO: DO NOT HARDCODE 4LOOPS USE NUMORGS FOR LOOPING AMOUNTS
+    for (size_t s = 0; s < (population.size() /10); ++s) {
         newPopulation.push_back(Graph(population[scoredLookup[s].first]));
     }
-    for (size_t s = 0; s < 48; ++s) {
+    for (size_t s = 0; s < (population.size() * 9 / 20); ++s) {
         newPopulation.push_back(mutate(population[scoredLookup[s].first], totalLiquidity));
         newPopulation.push_back(mutate(population[scoredLookup[s].first], totalLiquidity));
     }
-    /*for (size_t s = 0; s < newPopulation.size(); ++s) {
-        delete[] population[s].adj;
-    }*/
     return newPopulation;
 }
 
@@ -386,14 +316,12 @@ vector<Order> initOrderBookDENSE(uint16_t numTokens) {
     return orderbook;
 }
 
-
 // Driver program to test methods of graph class
-int main()
-{
-    uint16_t numTokens = 20;
-    double totalLiquidity = 1000000;
+int main() {
+    uint16_t numTokens = 100;
+    double totalLiquidity = 10000000;
     uint16_t numOrgs = 100;
-    uint16_t numGens = 1000;
+    uint16_t numGens = 100;
     
     vector<Order> orderBook = initOrderBookDENSE(numTokens);
     
@@ -401,9 +329,10 @@ int main()
     
     for (uint16_t i = 0; i < numGens; ++i) {
         cout << "Generation " << i << "\n";
-        population = selection(population, orderBook, totalLiquidity);
+        population = selection(population, orderBook, totalLiquidity, numOrgs);
     }
     return 0;
 }
+
 
 

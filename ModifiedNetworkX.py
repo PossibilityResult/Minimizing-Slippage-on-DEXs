@@ -29,24 +29,24 @@ def _slippage_dijkstra_alg(
     if source not in G:
         raise nx.NodeNotFound(f"Source {source} not in G")
     seen[source] = 0
-    push(fringe, (0, next(c), source))
+    push(fringe, (0, next(c), source, 0))
     while fringe:
-        (d, _, v) = pop(fringe)
+        (d, _, v, s) = pop(fringe)
         if v in dist:
             continue  # already searched this node.
         dist[v] = d
-        slip[v] = d
+        slip[v] = s
         if v == target:
             break
         for u, e in G_succ[v].items():
-            slippage = calcSlippageLoss(e['liquidity'], (exchange_amount - slip[v]))
+            vu_slippage = calcSlippageLoss(e['liquidity'], (exchange_amount - slip[v]))
             #cost = calcSlippageLoss(e['liquidity'], (exchange_amount - dist[v]))
             #cost = weight(v, u, e)
-            if slippage is None:
+            if vu_slippage is None:
             #if cost is None:
                 continue
             #vu_dist = dist[v] + cost
-            vu_dist = slip[v] + slippage + 10 + .003 * (exchange_amount) #slippage + gas + transaction fee
+            vu_dist = dist[v] + vu_slippage + 10 + .003 * (exchange_amount) #slippage + gas + transaction fee
             if cutoff is not None:
                 if vu_dist > cutoff:
                     continue
@@ -56,8 +56,7 @@ def _slippage_dijkstra_alg(
                     raise ValueError("Contradictory paths found:", "negative weights?")
             elif u not in seen or vu_dist < seen[u]:
                 seen[u] = vu_dist
-                slip[u] = slip[v] + slippage
-                push(fringe, (vu_dist, next(c), u))
+                push(fringe, (vu_dist, next(c), u, vu_slippage))
                 if paths is not None:
                     paths[u] = paths[v] + [u]
 

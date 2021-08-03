@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 
 
 total_liquidity = 10000
-order_book = [Order(100, "1", "2"), Order(100, "2", "3"), Order(1000, "3", "4"), Order(1000, "1", "4"), Order(1000, "1", "3"), Order(100, "2", "4")]
+order_book = [Order(100, "1", "2"), Order(100, "2", "3"), Order(100, "3", "4"), Order(100, "1", "4"), Order(100, "1", "3"), Order(100, "2", "4")]
 #edges = []
 
 #edges = [["wETH", "SHIB", 1-2], ["SHIB", "ZAP", 2-3], ["ZAP", "UNI", 3-4], ["UNI", "wETH", 4-1], ["wETH", "ZAP", 1-3], ["UNI", "SHIB", 2,4]]
