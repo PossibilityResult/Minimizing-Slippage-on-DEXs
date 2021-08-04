@@ -1,6 +1,6 @@
 //
-//  pqdij.cpp
-//  dijkstratest
+//  modifiedDijkstra.hpp
+//  simulated annealing
 //
 //  Created by Elijah Fox on 7/26/21.
 //  Copyright © 2021 Elijah Fox. All rights reserved.
@@ -24,6 +24,8 @@
 
 using namespace std;
 # define INF 0x3f3f3f3f
+
+//extern double bestAllocation;
 
 // iPair ==> Integer Pair
 typedef pair<uint16_t, double> iPair;
@@ -62,10 +64,13 @@ public:
     double shortestPath(uint16_t s, uint16_t t, double exchange_amount);
     
     //generates a random allocation of liquidity
-    void randomAllocation(double totalLiquidity, uint16_t numTokens);
+    void randomAllocationDENSE(double totalLiquidity, uint16_t numTokens);
+    
+    void randomAllocationSupport(double totalLiquidity, uint16_t numTokens, vector<pair<uint16_t, uint16_t> > support);
     
     //calculates total loss (gas + transaction fees + slippage) given an orderbook
     double lossFunction(vector<Order> orderBook);
+    
 };
 
 // Allocates memory for adjacency list
@@ -168,10 +173,42 @@ double Graph::shortestPath(uint16_t src, uint16_t target, double exchange_amount
 }
 
 uint16_t maxEdges(uint16_t numTokens) {
-    return numTokens*(numTokens-1)/2;
+    return numTokens*(numTokens - 1)/2;
 }
 
-void Graph::randomAllocation(double totalLiquidity, uint16_t numTokens) {
+void Graph::randomAllocationSupport(double totalLiquidity, uint16_t numTokens, vector<pair<uint16_t, uint16_t> > support) {
+    //creates an instance of an engine.
+    random_device rnd_device;
+    // Specify the engine and distribution.
+    mt19937 mersenne_engine {rnd_device()};  // Generates random integers
+    
+    uniform_int_distribution<double> dist {1, 52};
+    
+    auto gen = [&dist, &mersenne_engine](){
+        return dist(mersenne_engine);
+    };
+    
+    //calculates max number of edges for a graph with numTokens (n choose 2)
+    uint16_t numEdges = static_cast<uint16_t>(support.size());
+    vector<double> vec(numEdges);
+    
+    generate(begin(vec), end(vec), gen);
+    
+    //finds the sum of the random vector to help normalize
+    double div = accumulate(vec.begin(), vec.end(), 0);
+    
+    //divides the vector by scalar (div); this makes the sum = 1
+    transform(vec.begin(), vec.end(), vec.begin(), [div](double &c){ return c/div; });
+    
+    //multiplies the vector by scalar (totalLiquidity); this makes sum of weights to totalLiquidity
+    transform(vec.begin(), vec.end(), vec.begin(), [totalLiquidity](double &c){ return c*totalLiquidity; });
+    
+    for (size_t i = 0; i < support.size(); ++i) {
+        this->addEdge(support[i].first, support[i].second, vec[i]);
+    }
+}
+
+void Graph::randomAllocationDENSE(double totalLiquidity, uint16_t numTokens) {
     //creates an instance of an engine.
     random_device rnd_device;
     // Specify the engine and distribution.
@@ -228,7 +265,7 @@ Graph mutate(Graph &g, double totalLiquidity){
     std::uniform_int_distribution<uint16_t> uni(0,numEdges - 1); // guaranteed unbiased
     
     //TODO: FIX BUG W/ MUTATION AND HIGH LOSS
-    for (uint8_t i = 0; i < 20; i++) {
+    for (uint8_t i = 0; i < 10; i++) {
     
         uint16_t i1 = uni(rng);
         uint16_t i2 = uni(rng);
@@ -257,12 +294,22 @@ Graph mutate(Graph &g, double totalLiquidity){
     return mutant;
 }
 
-vector<Graph> initPopulation(uint16_t numTokens, uint16_t numOrgs, double totalLiquidity) {
+vector<Graph> initPopulationDENSE(uint16_t numTokens, uint16_t numOrgs, double totalLiquidity) {
     vector<Graph> population;
     population.resize(numOrgs, Graph(numTokens));
     
     for (uint16_t s = 0; s < numOrgs; ++s) {
-        population[s].randomAllocation(totalLiquidity, numTokens);
+        population[s].randomAllocationDENSE(totalLiquidity, numTokens);
+    }
+    return population;
+}
+
+vector<Graph> initPopulationSupport(uint16_t numTokens, uint16_t numOrgs, double totalLiquidity, vector<pair<uint16_t, uint16_t> > support) {
+    vector<Graph> population;
+    population.resize(numOrgs, Graph(numTokens));
+    
+    for (uint16_t s = 0; s < numOrgs; ++s) {
+        population[s].randomAllocationSupport(totalLiquidity, numTokens, support);
     }
     return population;
 }
@@ -273,36 +320,6 @@ struct comp2 {
     }
 };
 
-vector<pair<size_t, double> > scoring(vector<Graph> &population, vector<Order> orderbook) {
-    double totalLoss = 0;
-    
-    vector<pair<size_t, double> > lookup(population.size());
-    for (size_t s = 0; s < population.size(); ++s) {
-        lookup[s].first = s;
-        lookup[s].second = population[s].lossFunction(orderbook);
-        totalLoss += lookup[s].second;
-    }
-    double averageLoss = totalLoss/static_cast<uint16_t>(population.size());
-    cout << "Average Total Cost: " << averageLoss << "\n";
-    //sort(population.begin(), population.end(), comp());
-    sort(lookup.begin(), lookup.end(), comp2());
-    cout << "Lowest Cost: " << population[lookup[0].first].costs << "\n\n";
-    return lookup;
-}
-
-vector<Graph> selection(vector<Graph> &population, vector<Order> orderbook, double totalLiquidity, int numOrgs) {
-    vector<pair<size_t, double> > scoredLookup = scoring(population, orderbook);
-    vector<Graph> newPopulation;
-    //TODO: DO NOT HARDCODE 4LOOPS USE NUMORGS FOR LOOPING AMOUNTS
-    for (size_t s = 0; s < (population.size() /10); ++s) {
-        newPopulation.push_back(Graph(population[scoredLookup[s].first]));
-    }
-    for (size_t s = 0; s < (population.size() * 9 / 20); ++s) {
-        newPopulation.push_back(mutate(population[scoredLookup[s].first], totalLiquidity));
-        newPopulation.push_back(mutate(population[scoredLookup[s].first], totalLiquidity));
-    }
-    return newPopulation;
-}
 
 vector<Order> initOrderBookDENSE(uint16_t numTokens) {
     vector<Order> orderbook;
@@ -314,24 +331,6 @@ vector<Order> initOrderBookDENSE(uint16_t numTokens) {
         }
     }
     return orderbook;
-}
-
-// Driver program to test methods of graph class
-int main() {
-    uint16_t numTokens = 100;
-    double totalLiquidity = 10000000;
-    uint16_t numOrgs = 100;
-    uint16_t numGens = 100;
-    
-    vector<Order> orderBook = initOrderBookDENSE(numTokens);
-    
-    vector<Graph> population = initPopulation(numTokens, numOrgs, totalLiquidity);
-    
-    for (uint16_t i = 0; i < numGens; ++i) {
-        cout << "Generation " << i << "\n";
-        population = selection(population, orderBook, totalLiquidity, numOrgs);
-    }
-    return 0;
 }
 
 
