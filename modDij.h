@@ -1,5 +1,5 @@
 //
-//  modifiedDijkstra.hpp
+//  modDij.h
 //  simulated annealing
 //
 //  Created by Elijah Fox on 7/26/21.
@@ -55,7 +55,13 @@ public:
     
     Graph(const Graph &g); // copy constructor
     
+    Graph(vector<pair<uint16_t, uint16_t> > support, uint16_t numTokens); //support constructor
+    
     ~Graph(); //destructor
+    
+    bool connectedComponents();
+    
+    void DFSUtil(uint16_t v, bool visited[]);
 
     // function to add an edge to graph
     void addEdge(uint16_t u, uint16_t v, double w);
@@ -91,8 +97,56 @@ Graph::Graph(const Graph &g) {
     }
 }
 
+Graph::Graph(vector<pair<uint16_t, uint16_t> > support, uint16_t numTokens) {
+    this->V = numTokens;
+    adj = new list<iPair> [V];
+    
+    for (size_t i = 0; i < support.size(); ++i) {
+        this->addEdge(support[i].first, support[i].second, 100);
+    }
+}
+
 Graph::~Graph() {
     delete[] adj;
+}
+
+
+bool Graph::connectedComponents()
+{
+    bool connected = true;
+    // Mark all the vertices as not visited
+    bool* visited = new bool[V];
+    for (uint16_t v = 0; v < V; v++)
+        visited[v] = false;
+ 
+    for (uint16_t v = 0; v < V; v++) {
+        if (visited[v] == false) {
+            // print all reachable vertices
+            // from v
+            DFSUtil(v, visited);
+            
+            if (v == V - 1) {
+                connected = false;
+            }
+        }
+    }
+    delete[] visited;
+    return connected;
+}
+ 
+void Graph::DFSUtil(uint16_t v, bool visited[])
+{
+    // Mark the current node as visited and print it
+    visited[v] = true;
+ 
+    // Recur for all the vertices
+    // adjacent to this vertex
+    list<iPair>::iterator i;
+    for (i = adj[v].begin(); i != adj[v].end(); ++i) {
+        if (!visited[i->first]) {
+            DFSUtil(i->first, visited);
+        }
+    }
 }
 
 void Graph::addEdge(uint16_t u, uint16_t v, double w) {
@@ -181,9 +235,7 @@ void Graph::randomAllocationSupport(double totalLiquidity, uint16_t numTokens, v
     random_device rnd_device;
     // Specify the engine and distribution.
     mt19937 mersenne_engine {rnd_device()};  // Generates random integers
-    
     uniform_int_distribution<double> dist {1, 52};
-    
     auto gen = [&dist, &mersenne_engine](){
         return dist(mersenne_engine);
     };
@@ -213,9 +265,7 @@ void Graph::randomAllocationDENSE(double totalLiquidity, uint16_t numTokens) {
     random_device rnd_device;
     // Specify the engine and distribution.
     mt19937 mersenne_engine {rnd_device()};  // Generates random integers
-    
     uniform_int_distribution<double> dist {1, 52};
-    
     auto gen = [&dist, &mersenne_engine](){
         return dist(mersenne_engine);
     };

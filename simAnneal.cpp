@@ -16,7 +16,10 @@
 class Annealing {
 public:
     Annealing();
+    //Random first init
     Annealing(uint16_t V);
+    //Edit constructor
+    Annealing(Annealing &A, bool edit);
     void randomLine(uint16_t numTokens);
     void randomSupport(uint16_t numTokens);
     
@@ -33,10 +36,53 @@ public:
     
 };
 
+Annealing::Annealing() {
+    numTokens = 0;
+    temperature = 0;
+}
 
 Annealing::Annealing(uint16_t V) {
     numTokens = V;
     randomSupport(numTokens);
+}
+
+Annealing::Annealing(Annealing &A, bool edit) {
+    std::random_device rd;     // only used once to initialise (seed) engine
+    std::mt19937 rng(rd());    // random-number engine used (Mersenne-Twister in this case)
+    std::uniform_int_distribution<uint16_t> uni(0, 2); // guaranteed unbiased
+    
+    numTokens = A.numTokens;
+    support.assign(A.support.begin(), A.support.end());
+    out.assign(A.out.begin(), A.out.end());
+    temperature = A.temperature;
+    
+    bool validGraph = false;
+    
+    while(!validGraph and edit) {
+        uint16_t e = uni(rng);
+        if (e == 0 and out.size() > 0) {
+        //remove edge
+            support.push_back(out.back());
+            out.pop_back();
+        }
+        else if (e == 1 and out.size() > 1 and support.size() > 1) {
+        //swap edge
+            support.push_back(out.back());
+            out.pop_back();
+            random_shuffle(support.begin(), support.end());
+            out.push_back(support.back());
+            support.pop_back();
+            
+        }
+        else if (e == 2 and support.size() > 0){
+        //add edge
+            random_shuffle(support.begin(), support.end());
+            out.push_back(support.back());
+            support.pop_back();
+        }
+        Graph g = Graph(support, numTokens);
+        validGraph = g.connectedComponents();
+    }
 }
 
 void Annealing::randomLine(uint16_t numTokens) {
@@ -55,7 +101,7 @@ void Annealing::randomLine(uint16_t numTokens) {
     for (uint16_t i = 0; i < numTokens - 1; ++i) {
         for (uint16_t j = i + 1; j < numTokens; ++j) {
             if (vec[j] != vec[i+1] and i != j) {
-                out.push_back(make_pair(i, j));
+                out.push_back(make_pair(vec[i], vec[j]));
             }
         }
     }
@@ -65,7 +111,7 @@ void Annealing::randomLine(uint16_t numTokens) {
 
 void Annealing::randomSupport(uint16_t numTokens) {
     std::mt19937 rng(numTokens);
-    std::uniform_int_distribution<int> gen(numTokens, maxEdges(numTokens)); // uniform, unbiased
+    std::uniform_int_distribution<int> gen(0, out.size()); // uniform, unbiased
     int r = gen(rng);
     
     randomLine(numTokens);
@@ -74,6 +120,7 @@ void Annealing::randomSupport(uint16_t numTokens) {
         support.push_back(make_pair(out.back().first, out.back().second));
         out.pop_back();
     }
+    
 }
 
 vector<pair<size_t, double> > Annealing::scoring(vector<Graph> &population, vector<Order> orderbook) {
@@ -86,11 +133,11 @@ vector<pair<size_t, double> > Annealing::scoring(vector<Graph> &population, vect
         totalLoss += lookup[s].second;
     }
     double averageLoss = totalLoss/static_cast<uint16_t>(population.size());
-    cout << "Average Total Cost: " << averageLoss << "\n";
+    //cout << "Average Total Cost: " << averageLoss << "\n";
     //sort(population.begin(), population.end(), comp());
     sort(lookup.begin(), lookup.end(), comp2());
     temperature = population[lookup[0].first].costs;
-    cout << "Lowest Cost: " << population[lookup[0].first].costs << "\n\n";
+    //cout << "Lowest Cost: " << population[lookup[0].first].costs << "\n\n";
     return lookup;
 }
 
@@ -112,26 +159,54 @@ vector<Graph> Annealing::selection(vector<Graph> &population, vector<Order> orde
 void Annealing::T() {
     double totalLiquidity = 10000;
     uint16_t numOrgs = 100;
-    uint16_t numGens = 500;
+    uint16_t numGens = 100;
     
     vector<Order> orderBook = initOrderBookDENSE(numTokens);
     
     vector<Graph> population = initPopulationSupport(numTokens, numOrgs, totalLiquidity, support);
     
     for (uint16_t i = 0; i < numGens; ++i) {
-        cout << "Generation " << i << "\n";
+        //cout << "Generation " << i << "\n";
         population = selection(population, orderBook, totalLiquidity, numOrgs);
     }
 }
 
 
 int main() {
-    uint16_t numTokens = 8;
-    Annealing anneal(numTokens);
-    anneal.T();
+    std::random_device rd;     // only used once to initialise (seed) engine
+    std::mt19937 rng(rd());    // random-number engine used (Mersenne-Twister in this case)
+    std::uniform_int_distribution<uint16_t> uni(0, 5); // guaranteed unbiased
+    uint16_t p;
     
+    uint16_t numTokens = 5;
+    bool edit;
     
-    cout << anneal.temperature << "\n";
+    Annealing prior = Annealing(numTokens);
+    prior.T();
+    Annealing best = Annealing(prior, edit);
     
+    for (uint i = 0; i < 100; ++i) {
+        edit = true;
+        Annealing current = Annealing(prior, edit);
+        p = uni(rng);
+        current.T();
+        cout << "\n\n";
+        cout << "ROUND " << i << "\n";
+        cout << "Current temperature : " << current.temperature << "\n";
+        
+        if (current.temperature < prior.temperature) {
+            edit = false;
+            prior = Annealing(current, edit);
+            if (current.temperature < best.temperature) {
+                best = Annealing(current, edit);
+                cout << "CURRENT IS NEW BEST!\n";
+            }
+        }
+        else if (p == 0) {
+            edit = false;
+            prior = Annealing(current, edit);
+        }
+        cout << "Best temperature : " << best.temperature << "\n\n";
+    }
     return 0;
 }
