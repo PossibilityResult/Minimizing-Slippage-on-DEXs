@@ -5,13 +5,13 @@
 //  Created by Elijah Fox on 8/3/21.
 //  Copyright © 2021 Elijah Fox. All rights reserved.
 //
-
-#include "modDij.h"
+#include "modifiedDijkstra.hpp"
 #include <iostream>     // std::cout
 #include <algorithm>    // std::random_shuffle
 #include <vector>       // std::vector
 #include <ctime>        // std::time
 #include <cstdlib>      // std::rand, std::srand
+#include <math.h>
 
 class Annealing {
 public:
@@ -24,10 +24,10 @@ public:
     void randomSupport(uint16_t numTokens);
     
     vector<pair<size_t, double> > scoring(vector<Graph> &population, vector<Order> orderbook);
-    void T();
+    void E();
     vector<Graph> selection(vector<Graph> &population, vector<Order> orderbook, double totalLiquidity, int numOrgs);
     
-    double temperature;
+    double energy;
     uint16_t numTokens;
     vector<pair<uint16_t, uint16_t> > support;
     vector<pair<uint16_t, uint16_t> > out;
@@ -38,7 +38,7 @@ public:
 
 Annealing::Annealing() {
     numTokens = 0;
-    temperature = 0;
+    energy = 0;
 }
 
 Annealing::Annealing(uint16_t V) {
@@ -54,7 +54,7 @@ Annealing::Annealing(Annealing &A, bool edit) {
     numTokens = A.numTokens;
     support.assign(A.support.begin(), A.support.end());
     out.assign(A.out.begin(), A.out.end());
-    temperature = A.temperature;
+    energy = A.energy;
     
     bool validGraph = false;
     
@@ -136,7 +136,7 @@ vector<pair<size_t, double> > Annealing::scoring(vector<Graph> &population, vect
     //cout << "Average Total Cost: " << averageLoss << "\n";
     //sort(population.begin(), population.end(), comp());
     sort(lookup.begin(), lookup.end(), comp2());
-    temperature = population[lookup[0].first].costs;
+    energy = population[lookup[0].first].costs;
     //cout << "Lowest Cost: " << population[lookup[0].first].costs << "\n\n";
     return lookup;
 }
@@ -156,7 +156,7 @@ vector<Graph> Annealing::selection(vector<Graph> &population, vector<Order> orde
 }
 
 // Driver program to test methods of graph class
-void Annealing::T() {
+void Annealing::E() {
     double totalLiquidity = 10000;
     uint16_t numOrgs = 100;
     uint16_t numGens = 100;
@@ -171,42 +171,64 @@ void Annealing::T() {
     }
 }
 
+double temperature(uint16_t k, uint16_t kmax) {
+    return (1 - (k+1)/kmax);
+}
+
+double probability (double energyPrev, double energyCurr, double temperature) {
+    if (energyPrev > energyCurr) {
+        return 1;
+    }
+    else {
+        return exp(- (energyCurr - energyPrev)/temperature);
+    }
+    return 0; //number between 0 and 1
+}
+
 
 int main() {
-    std::random_device rd;     // only used once to initialise (seed) engine
-    std::mt19937 rng(rd());    // random-number engine used (Mersenne-Twister in this case)
-    std::uniform_int_distribution<uint16_t> uni(0, 5); // guaranteed unbiased
-    uint16_t p;
+    std::mt19937_64 rng;
+    // initialize the random number generator with time-dependent seed
+    uint64_t timeSeed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+    std::seed_seq ss{uint32_t(timeSeed & 0xffffffff), uint32_t(timeSeed>>32)};
+    rng.seed(ss);
+    // initialize a uniform distribution between 0 and 1
+    std::uniform_real_distribution<double> unif(0, 1);
     
-    uint16_t numTokens = 5;
+    double prob;
+    
+    uint16_t numTokens = 8;
+    uint16_t kmax = 100;
+    double p;
+    double temp;
     bool edit;
     
     Annealing prior = Annealing(numTokens);
-    prior.T();
+    prior.E();
     Annealing best = Annealing(prior, edit);
     
-    for (uint i = 0; i < 100; ++i) {
+    for (uint16_t k = 0; k < kmax; ++k) {
         edit = true;
         Annealing current = Annealing(prior, edit);
-        p = uni(rng);
-        current.T();
+        //p = uni(rng);
+        current.E();
         cout << "\n\n";
-        cout << "ROUND " << i << "\n";
-        cout << "Current temperature : " << current.temperature << "\n";
+        cout << "ROUND " << k << "\n";
+        cout << "Current energy : " << current.energy << "\n";
         
-        if (current.temperature < prior.temperature) {
+        temp = temperature(k, kmax);
+        p = probability (prior.energy, current.energy, temp);
+        prob = unif(rng);
+        
+        if (p > prob) {
             edit = false;
             prior = Annealing(current, edit);
-            if (current.temperature < best.temperature) {
+            if (current.energy < best.energy) {
                 best = Annealing(current, edit);
                 cout << "CURRENT IS NEW BEST!\n";
             }
         }
-        else if (p == 0) {
-            edit = false;
-            prior = Annealing(current, edit);
-        }
-        cout << "Best temperature : " << best.temperature << "\n\n";
+        cout << "Best temperature : " << best.energy << "\n\n";
     }
     return 0;
 }
