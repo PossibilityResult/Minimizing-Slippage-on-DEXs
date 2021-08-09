@@ -46,7 +46,7 @@ def _slippage_dijkstra_alg(
             #if cost is None:
                 continue
             #vu_dist = dist[v] + cost
-            vu_dist = dist[v] + vu_slippage + 10 + .003 * (exchange_amount) #slippage + gas + transaction fee
+            vu_dist = dist[v] + vu_slippage# + 10 + .003 * (exchange_amount) #slippage + gas + transaction fee
             if cutoff is not None:
                 if vu_dist > cutoff:
                     continue

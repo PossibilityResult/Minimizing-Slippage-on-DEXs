@@ -26,18 +26,18 @@ token_edges_weights_indexed = []
 for edge in graph:
     G.add_edge(edge[0], edge[1], weight = graph[edge])
 
-pos = nx.spring_layout(G)  # positions for all nodes
+#pos = nx.spring_layout(G)  # positions for all nodes
 
 #nodes
-d = dict(G.degree)
-nx.draw(G, pos, nodelist=d.keys(), node_size=[v*10 for v in d.values()])
+#d = dict(G.degree)
+nx.draw(G)
 
 # edges
-nx.draw_networkx_edges(G, pos,  width=.2)
-nx.draw_networkx_edges(G, pos, width=.2, alpha=0.5, edge_color="b", style="dashed")
+#nx.draw_networkx_edges(G, pos,  width=.2)
+#nx.draw_networkx_edges(G, pos, width=.2, alpha=0.5, edge_color="b", style="dashed")
 
 # labels
-nx.draw_networkx_labels(G, pos, font_size=1, font_family="sans-serif")
+#nx.draw_networkx_labels(G, pos, font_size=1, font_family="sans-serif")
 
 plt.axis("off")
 plt.show()

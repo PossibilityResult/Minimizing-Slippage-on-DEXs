@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 
 
 total_liquidity = 10000
-order_book = [Order(100, "1", "2"), Order(100, "2", "3"), Order(100, "3", "1")]
+order_book = [Order(50, "1", "2"), Order(50, "2", "3"), Order(50, "3", "1")]
 
 two_edges = [["1", "2", total_liquidity/2], ["2", "3", total_liquidity/2], ["1", "3", 0]]
 three_edges = [["1", "2", total_liquidity/3], ["2", "3", total_liquidity/3], ["1", "3", total_liquidity/3]]

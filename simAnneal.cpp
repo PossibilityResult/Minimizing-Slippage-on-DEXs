@@ -5,13 +5,14 @@
 //  Created by Elijah Fox on 8/3/21.
 //  Copyright © 2021 Elijah Fox. All rights reserved.
 //
-#include "modifiedDijkstra.hpp"
+#include "modDij.h"
 #include <iostream>     // std::cout
 #include <algorithm>    // std::random_shuffle
 #include <vector>       // std::vector
 #include <ctime>        // std::time
 #include <cstdlib>      // std::rand, std::srand
 #include <math.h>
+#include <fstream>
 
 class Annealing {
 public:
@@ -23,17 +24,16 @@ public:
     void randomLine(uint16_t numTokens);
     void randomSupport(uint16_t numTokens);
     
+    //pair<uint16_t, uint16_t> zeroEdge;
+    
     vector<pair<size_t, double> > scoring(vector<Graph> &population, vector<Order> orderbook);
-    void E();
+    Graph E();
     vector<Graph> selection(vector<Graph> &population, vector<Order> orderbook, double totalLiquidity, int numOrgs);
     
     double energy;
     uint16_t numTokens;
     vector<pair<uint16_t, uint16_t> > support;
     vector<pair<uint16_t, uint16_t> > out;
-    
-
-    
 };
 
 Annealing::Annealing() {
@@ -60,12 +60,19 @@ Annealing::Annealing(Annealing &A, bool edit) {
     
     while(!validGraph and edit) {
         uint16_t e = uni(rng);
+        /*if (A.zeroEdge.first != 0 or A.zeroEdge.second != 0) {
+            for (size_t s = 0; s < support.size(); ++s) {
+                if ((A.zeroEdge.first == support[s].first or A.zeroEdge.first == support[s].second) and (A.zeroEdge.second == support[s].first or A.zeroEdge.second == support[s].second)) {
+                    support.erase(support.begin() + s);
+                }
+            }
+        }*/
         if (e == 0 and out.size() > 0) {
         //remove edge
             support.push_back(out.back());
             out.pop_back();
         }
-        else if (e == 1 and out.size() > 1 and support.size() > 1) {
+        else if (e == 1 and out.size() > 1 and support.size() > numTokens - 2) {
         //swap edge
             support.push_back(out.back());
             out.pop_back();
@@ -74,7 +81,7 @@ Annealing::Annealing(Annealing &A, bool edit) {
             support.pop_back();
             
         }
-        else if (e == 2 and support.size() > 0){
+        else if (e == 2 and support.size() > numTokens - 2){
         //add edge
             random_shuffle(support.begin(), support.end());
             out.push_back(support.back());
@@ -137,6 +144,7 @@ vector<pair<size_t, double> > Annealing::scoring(vector<Graph> &population, vect
     //sort(population.begin(), population.end(), comp());
     sort(lookup.begin(), lookup.end(), comp2());
     energy = population[lookup[0].first].costs;
+    //zeroEdge = make_pair(population[lookup[0].first].zeroEdge.first, population[lookup[0].first].zeroEdge.second);
     //cout << "Lowest Cost: " << population[lookup[0].first].costs << "\n\n";
     return lookup;
 }
@@ -156,8 +164,8 @@ vector<Graph> Annealing::selection(vector<Graph> &population, vector<Order> orde
 }
 
 // Driver program to test methods of graph class
-void Annealing::E() {
-    double totalLiquidity = 10000;
+Graph Annealing::E() {
+    double totalLiquidity = 100000000;
     uint16_t numOrgs = 100;
     uint16_t numGens = 100;
     
@@ -169,6 +177,8 @@ void Annealing::E() {
         //cout << "Generation " << i << "\n";
         population = selection(population, orderBook, totalLiquidity, numOrgs);
     }
+    return population[scoring(population, orderBook)[0].first];
+    //TODO: SORT POPULATION AND RETURN THE BEST GRAPH
 }
 
 double temperature(uint16_t k, uint16_t kmax) {
@@ -187,6 +197,10 @@ double probability (double energyPrev, double energyCurr, double temperature) {
 
 
 int main() {
+    std::ofstream myfile;
+    myfile.open ("edges.csv");
+    myfile << "\n";
+    
     std::mt19937_64 rng;
     // initialize the random number generator with time-dependent seed
     uint64_t timeSeed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
@@ -197,38 +211,48 @@ int main() {
     
     double prob;
     
-    uint16_t numTokens = 8;
-    uint16_t kmax = 100;
+    uint16_t numTokens = 15;
+    uint16_t kmax = 1000;
     double p;
     double temp;
-    bool edit;
+    bool edit = false;
+    uint16_t b = 0;
     
     Annealing prior = Annealing(numTokens);
     prior.E();
     Annealing best = Annealing(prior, edit);
     
     for (uint16_t k = 0; k < kmax; ++k) {
+        //p = uni(rng);
         edit = true;
         Annealing current = Annealing(prior, edit);
-        //p = uni(rng);
-        current.E();
+        
+        Graph g = prior.E();
         cout << "\n\n";
         cout << "ROUND " << k << "\n";
-        cout << "Current energy : " << current.energy << "\n";
+        cout << "Current energy : " << prior.energy << "\n";
         
         temp = temperature(k, kmax);
         p = probability (prior.energy, current.energy, temp);
         prob = unif(rng);
-        
+        myfile << prior.energy  << " ";
+        myfile << best.energy  << " ";
+        for (size_t i = 0; i < g.edgeList.size(); ++i) {
+            myfile << g.edgeList[i].first->first  << " " << g.edgeList[i].second->first << " " << g.edgeList[i].first->second << " ";
+        }
+        myfile << "\n";
         if (p > prob) {
             edit = false;
             prior = Annealing(current, edit);
+        
+            
             if (current.energy < best.energy) {
                 best = Annealing(current, edit);
+                b = k;
                 cout << "CURRENT IS NEW BEST!\n";
             }
         }
-        cout << "Best temperature : " << best.energy << "\n\n";
+        cout << "Best energy : " << best.energy << "\n\n";
     }
     return 0;
 }

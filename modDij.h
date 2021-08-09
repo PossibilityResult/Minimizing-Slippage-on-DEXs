@@ -47,9 +47,13 @@ public:
     // and weight pair for every edge
     list<pair <uint16_t, double> > *adj;
     
+    double totalLiq;
+    
     vector< pair< pair<uint16_t, double>*, pair<uint16_t, double>* > > edgeList;
     
     double costs;
+    
+    //pair<uint16_t, uint16_t> zeroEdge;
 
     Graph(uint16_t V); // Constructor
     
@@ -83,12 +87,13 @@ public:
 Graph::Graph(uint16_t V) {
     this->V = V;
     adj = new list<iPair> [V];
+    //zeroEdge = make_pair(0, 0);
 }
 
-//TODO: FINISH COPY CONSTRUCTOR
 Graph::Graph(const Graph &g) {
     this->V = g.V;
     adj = new list<iPair> [V];
+    //zeroEdge = make_pair(g.zeroEdge.first,g.zeroEdge.second);
     
     if (g.edgeList.size() > 0) {
         for (uint16_t i = 0; i < g.edgeList.size(); ++i){
@@ -161,7 +166,8 @@ double calculateSlippage(double liquidity, double q1) {
     if (q1 >= r) {
         return INT_MAX;
     }
-    return ( q1 - (r*q1)/(r+q1) );
+    
+    return ( q1 - ((r*q1)/(r+q1)) );
 }
 
 // Prints shortest paths from src to all other vertices
@@ -211,10 +217,10 @@ double Graph::shortestPath(uint16_t src, uint16_t target, double exchange_amount
             //calculates just slippage loss
             double s = calculateSlippage(weight, exchange_amount - slip[u]);
             //calculate distance (includes transaction fees and gas)
-            double d = s + slip[u] + 10 + .003 * (exchange_amount - slip[u]);
+            double d = s + 10 + .003 * (exchange_amount - slip[u]);
 
             // If there is shorter path to v through u.
-            if (dist[v] > dist[u] + weight)
+            if (dist[v] > dist[u] + d)
             {
                 // Updating distance of v
                 dist[v] = dist[u] + d;
@@ -231,6 +237,7 @@ uint16_t maxEdges(uint16_t numTokens) {
 }
 
 void Graph::randomAllocationSupport(double totalLiquidity, uint16_t numTokens, vector<pair<uint16_t, uint16_t> > support) {
+    totalLiq = totalLiquidity;
     //creates an instance of an engine.
     random_device rnd_device;
     // Specify the engine and distribution.
@@ -315,25 +322,17 @@ Graph mutate(Graph &g, double totalLiquidity){
     std::uniform_int_distribution<uint16_t> uni(0,numEdges - 1); // guaranteed unbiased
     
     //TODO: FIX BUG W/ MUTATION AND HIGH LOSS
-    for (uint8_t i = 0; i < 10; i++) {
+    for (uint8_t i = 0; i < 2; i++) {
     
         uint16_t i1 = uni(rng);
         uint16_t i2 = uni(rng);
 
-        double mut_amount = totalLiquidity/(numEdges*50);
+        double mut_amount = totalLiquidity/(numEdges*100);
         double temp;
     
         pair< pair<uint16_t, double>*, pair<uint16_t,double>* >* e1 = &mutant.edgeList[i1];
         pair< pair<uint16_t,double>*, pair<uint16_t,double>* >* e2 = &mutant.edgeList[i2];
-        if (e1->first->second - mut_amount <= 0){
-            temp = e1->first->second;
-            e1->first->second = 0;
-            e1->second->second = 0;
-
-            e2->first->second += temp;
-            e2->second->second += temp;
-        }
-        else {
+        if (e1->first->second - mut_amount > totalLiquidity/(numEdges*20)){
             e1->first->second -= mut_amount;
             e1->second->second -= mut_amount;
         
@@ -360,6 +359,7 @@ vector<Graph> initPopulationSupport(uint16_t numTokens, uint16_t numOrgs, double
     
     for (uint16_t s = 0; s < numOrgs; ++s) {
         population[s].randomAllocationSupport(totalLiquidity, numTokens, support);
+        
     }
     return population;
 }
@@ -372,16 +372,25 @@ struct comp2 {
 
 
 vector<Order> initOrderBookDENSE(uint16_t numTokens) {
+    std::mt19937_64 rng;
+    // initialize the random number generator with time-dependent seed
+    uint64_t timeSeed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+        std::seed_seq ss{uint32_t(timeSeed & 0xffffffff), uint32_t(timeSeed>>32)};
+    rng.seed(ss);
+        // initialize a uniform distribution between 0 and 1
+    std::uniform_real_distribution<double> unif(500, 10000);
+        
     vector<Order> orderbook;
     uint16_t index = 0;
     for (uint16_t i = 0; i < numTokens - 1; ++i) {
         for (uint16_t j = i + 1; j < numTokens; ++j) {
-            orderbook.push_back(Order{i, j, 50});
+            orderbook.push_back(Order{i, j, unif(rng)});
             index++;
         }
     }
     return orderbook;
 }
+       
 
 
 
