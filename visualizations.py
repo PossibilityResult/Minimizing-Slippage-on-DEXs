@@ -12,7 +12,7 @@ G = nx.Graph()
 
 #print(df.iloc[0].tolist()[0].split(" "))
 filenames = []
-for i in range(345):#df.shape[0]):
+for i in range(df.shape[0]):
     print(i)
     index = 0
     edges = []
@@ -42,7 +42,7 @@ for i in range(345):#df.shape[0]):
 
     pos = nx.circular_layout(G)
     plt.title("k = " + str(i) + "; Current cost: " + str(current_cost) + "; Lowest cost: " + str(best_cost))
-    nx.draw(G, pos, edgelist = edges, edge_color = weights_final, width = 3.0, edge_cmap=cm.get_cmap("Greys"))
+    nx.draw(G, pos, edgelist = edges, edge_color = weights_final, width = 3.0)#, edge_cmap=cm.get_cmap("Greys"))
     
     # create file name and append it to a list
     filename = f'{i}.png'
@@ -55,7 +55,7 @@ for i in range(345):#df.shape[0]):
 
 
 # build gif
-with imageio.get_writer('mygif.gif', mode='I') as writer:
+with imageio.get_writer('mygif1.gif', mode='I') as writer:
     for filename in filenames:
         image = imageio.imread(filename)
         writer.append_data(image)

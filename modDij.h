@@ -124,15 +124,14 @@ bool Graph::connectedComponents()
     for (uint16_t v = 0; v < V; v++)
         visited[v] = false;
  
+    DFSUtil(0, visited);
     for (uint16_t v = 0; v < V; v++) {
         if (visited[v] == false) {
             // print all reachable vertices
             // from v
-            DFSUtil(v, visited);
+            connected = false;
             
-            if (v == V - 1) {
-                connected = false;
-            }
+            
         }
     }
     delete[] visited;
@@ -143,6 +142,7 @@ void Graph::DFSUtil(uint16_t v, bool visited[])
 {
     // Mark the current node as visited and print it
     visited[v] = true;
+
  
     // Recur for all the vertices
     // adjacent to this vertex
@@ -321,8 +321,10 @@ Graph mutate(Graph &g, double totalLiquidity){
     std::mt19937 rng(rd());    // random-number engine used (Mersenne-Twister in this case)
     std::uniform_int_distribution<uint16_t> uni(0,numEdges - 1); // guaranteed unbiased
     
+    uint16_t iter = uni(rng);
+    
     //TODO: FIX BUG W/ MUTATION AND HIGH LOSS
-    for (uint8_t i = 0; i < 2; i++) {
+    for (uint16_t i = 0; i < iter; i++) {
     
         uint16_t i1 = uni(rng);
         uint16_t i2 = uni(rng);

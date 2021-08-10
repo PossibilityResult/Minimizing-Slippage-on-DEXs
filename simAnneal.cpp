@@ -13,6 +13,7 @@
 #include <cstdlib>      // std::rand, std::srand
 #include <math.h>
 #include <fstream>
+#include <time.h>
 
 class Annealing {
 public:
@@ -60,13 +61,6 @@ Annealing::Annealing(Annealing &A, bool edit) {
     
     while(!validGraph and edit) {
         uint16_t e = uni(rng);
-        /*if (A.zeroEdge.first != 0 or A.zeroEdge.second != 0) {
-            for (size_t s = 0; s < support.size(); ++s) {
-                if ((A.zeroEdge.first == support[s].first or A.zeroEdge.first == support[s].second) and (A.zeroEdge.second == support[s].first or A.zeroEdge.second == support[s].second)) {
-                    support.erase(support.begin() + s);
-                }
-            }
-        }*/
         if (e == 0 and out.size() > 0) {
         //remove edge
             support.push_back(out.back());
@@ -166,8 +160,8 @@ vector<Graph> Annealing::selection(vector<Graph> &population, vector<Order> orde
 // Driver program to test methods of graph class
 Graph Annealing::E() {
     double totalLiquidity = 100000000;
-    uint16_t numOrgs = 100;
-    uint16_t numGens = 100;
+    uint16_t numOrgs = 200;
+    uint16_t numGens = 200;
     
     vector<Order> orderBook = initOrderBookDENSE(numTokens);
     
@@ -178,7 +172,6 @@ Graph Annealing::E() {
         population = selection(population, orderBook, totalLiquidity, numOrgs);
     }
     return population[scoring(population, orderBook)[0].first];
-    //TODO: SORT POPULATION AND RETURN THE BEST GRAPH
 }
 
 double temperature(uint16_t k, uint16_t kmax) {
@@ -190,7 +183,7 @@ double probability (double energyPrev, double energyCurr, double temperature) {
         return 1;
     }
     else {
-        return exp(- (energyCurr - energyPrev)/temperature);
+        return exp(- (energyCurr - energyPrev)/(temperature*125));
     }
     return 0; //number between 0 and 1
 }
@@ -209,32 +202,37 @@ int main() {
     // initialize a uniform distribution between 0 and 1
     std::uniform_real_distribution<double> unif(0, 1);
     
+    srand( (unsigned)time( NULL ) );
+    
     double prob;
     
-    uint16_t numTokens = 15;
-    uint16_t kmax = 1000;
+    uint16_t numTokens = 8;
+    uint16_t kmax = 200;
     double p;
     double temp;
     bool edit = false;
     uint16_t b = 0;
     
     Annealing prior = Annealing(numTokens);
-    prior.E();
+    Graph g = prior.E();
     Annealing best = Annealing(prior, edit);
     
     for (uint16_t k = 0; k < kmax; ++k) {
         //p = uni(rng);
         edit = true;
         Annealing current = Annealing(prior, edit);
+        current.E();
         
-        Graph g = prior.E();
         cout << "\n\n";
         cout << "ROUND " << k << "\n";
-        cout << "Current energy : " << prior.energy << "\n";
+        cout << "Prior energy : " << prior.energy << "\n";
+        cout << "Current energy : " << current.energy << "\n";
         
         temp = temperature(k, kmax);
         p = probability (prior.energy, current.energy, temp);
-        prob = unif(rng);
+        prob =  unif(rng);//unif(rng);
+        cout << prob << "\n";
+        cout << p << "\n";
         myfile << prior.energy  << " ";
         myfile << best.energy  << " ";
         for (size_t i = 0; i < g.edgeList.size(); ++i) {
@@ -244,7 +242,7 @@ int main() {
         if (p > prob) {
             edit = false;
             prior = Annealing(current, edit);
-        
+
             
             if (current.energy < best.energy) {
                 best = Annealing(current, edit);
