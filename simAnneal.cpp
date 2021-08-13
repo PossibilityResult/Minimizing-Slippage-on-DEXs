@@ -15,6 +15,12 @@
 #include <fstream>
 #include <time.h>
 
+struct edge {
+    uint16_t sourceToken;
+    uint16_t targetToken;
+    double liquidity;
+};
+
 class Annealing {
 public:
     Annealing();
@@ -24,13 +30,15 @@ public:
     Annealing(Annealing &A, bool edit);
     void randomLine(uint16_t numTokens);
     void randomSupport(uint16_t numTokens);
+    vector<pair<size_t, double> > scoredLookup;
     
     //pair<uint16_t, uint16_t> zeroEdge;
     
     vector<pair<size_t, double> > scoring(vector<Graph> &population, vector<Order> orderbook);
-    Graph E();
-    vector<Graph> selection(vector<Graph> &population, vector<Order> orderbook, double totalLiquidity, int numOrgs);
+    vector<edge> E(vector<Order> orderBook);
+    vector<Graph> selection(vector<Graph> &population, vector<Order> orderbook, int numOrgs);
     
+    double totalLiquidity;
     double energy;
     uint16_t numTokens;
     vector<pair<uint16_t, uint16_t> > support;
@@ -40,11 +48,13 @@ public:
 Annealing::Annealing() {
     numTokens = 0;
     energy = 0;
+    totalLiquidity = 0;
 }
 
 Annealing::Annealing(uint16_t V) {
     numTokens = V;
-    randomSupport(numTokens);
+    totalLiquidity = 0;
+    //randomSupport(V);
 }
 
 Annealing::Annealing(Annealing &A, bool edit) {
@@ -56,6 +66,7 @@ Annealing::Annealing(Annealing &A, bool edit) {
     support.assign(A.support.begin(), A.support.end());
     out.assign(A.out.begin(), A.out.end());
     energy = A.energy;
+    totalLiquidity = A.totalLiquidity;
     
     bool validGraph = false;
     
@@ -133,18 +144,14 @@ vector<pair<size_t, double> > Annealing::scoring(vector<Graph> &population, vect
         lookup[s].second = population[s].lossFunction(orderbook);
         totalLoss += lookup[s].second;
     }
-    double averageLoss = totalLoss/static_cast<uint16_t>(population.size());
-    //cout << "Average Total Cost: " << averageLoss << "\n";
-    //sort(population.begin(), population.end(), comp());
+    
     sort(lookup.begin(), lookup.end(), comp2());
     energy = population[lookup[0].first].costs;
-    //zeroEdge = make_pair(population[lookup[0].first].zeroEdge.first, population[lookup[0].first].zeroEdge.second);
-    //cout << "Lowest Cost: " << population[lookup[0].first].costs << "\n\n";
     return lookup;
 }
 
-vector<Graph> Annealing::selection(vector<Graph> &population, vector<Order> orderbook, double totalLiquidity, int numOrgs) {
-    vector<pair<size_t, double> > scoredLookup = scoring(population, orderbook);
+vector<Graph> Annealing::selection(vector<Graph> &population, vector<Order> orderbook, int numOrgs) {
+    scoredLookup = scoring(population, orderbook);
     vector<Graph> newPopulation;
     //TODO: DO NOT HARDCODE 4LOOPS USE NUMORGS FOR LOOPING AMOUNTS
     for (size_t s = 0; s < (population.size() /10); ++s) {
@@ -158,20 +165,27 @@ vector<Graph> Annealing::selection(vector<Graph> &population, vector<Order> orde
 }
 
 // Driver program to test methods of graph class
-Graph Annealing::E() {
-    double totalLiquidity = 100000000;
-    uint16_t numOrgs = 200;
-    uint16_t numGens = 200;
+vector<edge> Annealing::E(vector<Order> orderBook) {
+    uint16_t numOrgs = 150;
+    uint16_t numGens = 150;
     
-    vector<Order> orderBook = initOrderBookDENSE(numTokens);
+    //vector<Order> orderBook = initOrderBookDENSE(numTokens);
     
     vector<Graph> population = initPopulationSupport(numTokens, numOrgs, totalLiquidity, support);
     
     for (uint16_t i = 0; i < numGens; ++i) {
         //cout << "Generation " << i << "\n";
-        population = selection(population, orderBook, totalLiquidity, numOrgs);
+        population = selection(population, orderBook, numOrgs);
     }
-    return population[scoring(population, orderBook)[0].first];
+    vector<edge> edges;
+    
+    for (size_t s = 0; s < population[scoredLookup[0].first].edgeList.size(); ++s) {
+        uint16_t source = population[scoredLookup[0].first].edgeList[s].first->first;
+        uint16_t target = population[scoredLookup[0].first].edgeList[s].second->first;
+        double liquid = population[scoredLookup[0].first].edgeList[s].first->second;
+        edges.push_back({source, target, liquid});
+    }
+    return edges;
 }
 
 double temperature(uint16_t k, uint16_t kmax) {
@@ -183,13 +197,58 @@ double probability (double energyPrev, double energyCurr, double temperature) {
         return 1;
     }
     else {
-        return exp(- (energyCurr - energyPrev)/(temperature*125));
+        return exp(- (energyCurr - energyPrev)/(temperature*90));
     }
     return 0; //number between 0 and 1
 }
 
-
 int main() {
+    ifstream file("/Users/elijahfox/Desktop/edges_data.txt");
+    
+    if (!file.is_open())
+    {
+        cout << "Path Wrong!!!!" << endl;
+    }
+    
+    int node1;
+    int node2;
+    double liquidity;
+    Graph g(10);
+    string line;
+    //char dud;
+    
+    uint16_t numTokens = 10;
+    uint16_t kmax = 300;
+    double p;
+    double temp;
+    bool edit = false;
+    uint16_t b = 0;
+    
+    Annealing prior = Annealing(numTokens);
+    
+    getline(file, line);
+    while(getline(file, line, ',')) {
+        getline(file, line, ',');
+        node1 = stoi(line);
+        getline(file, line, ',');
+        node2 = stoi(line);
+        getline(file, line);
+        liquidity = stod(line);
+        
+        if (node1 != 11) {
+            prior.support.push_back(make_pair(static_cast<uint16_t>(node1), static_cast<uint16_t>(node2)));
+            g.addEdge(node1, node2, liquidity);
+        }
+        else {
+            prior.totalLiquidity = liquidity;
+        }
+    }
+    
+    vector<Order> ob = initOrderBookCSV();
+    g.lossFunction(ob);
+    
+    cout << "SushiSwap Loss: " << g.costs << "\n\n";
+    
     std::ofstream myfile;
     myfile.open ("edges.csv");
     myfile << "\n";
@@ -205,52 +264,46 @@ int main() {
     srand( (unsigned)time( NULL ) );
     
     double prob;
+
     
-    uint16_t numTokens = 8;
-    uint16_t kmax = 200;
-    double p;
-    double temp;
-    bool edit = false;
-    uint16_t b = 0;
-    
-    Annealing prior = Annealing(numTokens);
-    Graph g = prior.E();
+    vector<edge> edges = prior.E(ob);
+    //vector< pair< pair<uint16_t, double>*, pair<uint16_t, double>* > > out = g.edgeList;
     Annealing best = Annealing(prior, edit);
     
     for (uint16_t k = 0; k < kmax; ++k) {
         //p = uni(rng);
         edit = true;
         Annealing current = Annealing(prior, edit);
-        current.E();
+        vector<edge> tempEdges = current.E(ob);
         
         cout << "\n\n";
         cout << "ROUND " << k << "\n";
         cout << "Prior energy : " << prior.energy << "\n";
         cout << "Current energy : " << current.energy << "\n";
+        cout << "Best energy : " << best.energy << "\n";
+        
+        myfile << prior.energy  << " ";
+        myfile << best.energy  << " ";
+        for (size_t i = 0; i < edges.size(); ++i) {
+            myfile << edges[i].sourceToken  << " " << edges[i].targetToken << " " << edges[i].liquidity << " ";
+        }
+         myfile << "\n";
         
         temp = temperature(k, kmax);
         p = probability (prior.energy, current.energy, temp);
         prob =  unif(rng);//unif(rng);
-        cout << prob << "\n";
-        cout << p << "\n";
-        myfile << prior.energy  << " ";
-        myfile << best.energy  << " ";
-        for (size_t i = 0; i < g.edgeList.size(); ++i) {
-            myfile << g.edgeList[i].first->first  << " " << g.edgeList[i].second->first << " " << g.edgeList[i].first->second << " ";
-        }
-        myfile << "\n";
+        
         if (p > prob) {
             edit = false;
             prior = Annealing(current, edit);
-
+            edges = tempEdges;
             
             if (current.energy < best.energy) {
                 best = Annealing(current, edit);
                 b = k;
-                cout << "CURRENT IS NEW BEST!\n";
+                cout << "CURRENT IS NEW BEST!\n\n";
             }
         }
-        cout << "Best energy : " << best.energy << "\n\n";
     }
     return 0;
 }

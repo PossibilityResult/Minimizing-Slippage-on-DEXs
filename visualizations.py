@@ -4,7 +4,47 @@ import matplotlib.cm as cm
 import pandas as pd
 import os
 import numpy as np
+import matplotlib.image as mpimg
 import imageio
+
+image_dict = {
+  "WETH" : mpimg.imread('WETH.png'), 
+  "USDC" : mpimg.imread('USDC.png'),
+  "DAI" : mpimg.imread('DAI.png'),
+  "USDT" : mpimg.imread('USDT.png'),
+  "SUSHI" : mpimg.imread('SUSHI.png'),
+  "WBTC" : mpimg.imread('WBTC.png'),
+  "YFI" : mpimg.imread('YFI.png'),
+  "SNX" : mpimg.imread('SNX.png'),
+  "AAVE" : mpimg.imread('AAVE.png'),
+  "LINK" : mpimg.imread('LINK.png'),
+}
+
+tick_to_index = {
+  "WETH" : 0, 
+  "USDC" : 1,
+  "DAI" : 2,
+  "USDT" : 3,
+  "SUSHI" : 4,
+  "WBTC" : 5,
+  "YFI" : 6,
+  "SNX" : 7,
+  "AAVE" : 8,
+  "LINK" : 9,
+}
+
+index_to_tick = {
+  0 : "WETH", 
+  1 : "USDC",
+  2 : "DAI",
+  3 : "USDT",
+  4 : "SUSHI",
+  5 : "WBTC",
+  6 : "YFI",
+  7 : "SNX",
+  8 : "AAVE",
+  9 : "LINK",
+}
 
 df = pd.read_csv("edges.csv")
 
@@ -31,9 +71,12 @@ for i in range(df.shape[0]):
             #print(tup)
             tup = []
             index = 0
+    
+    for integer in range(10):
+        G.add_node(index_to_tick[integer], image = image_dict[index_to_tick[integer]])
 
     for edge in edges:
-        G.add_edge(edge[0], edge[1], weight=edge[2])
+        G.add_edge(index_to_tick[int(edge[0])], index_to_tick[int(edge[1])], weight=edge[2])
         #print(edge)
 
     edges,weights = zip(*nx.get_edge_attributes(G,'weight').items())
@@ -41,8 +84,32 @@ for i in range(df.shape[0]):
     weights_final = [float(x) for x in weights]
 
     pos = nx.circular_layout(G)
+    fig=plt.figure(figsize=(7,7))
+    ax=plt.subplot(111)
+    ax.set_aspect('equal')
+
+    edges,weights = zip(*nx.get_edge_attributes(G,'weight').items())
+    weights_final = [float(x) for x in weights]
+    nx.draw_networkx_edges(G, pos, ax=ax, edge_color = weights_final, width = 3.0, edge_cmap=cm.get_cmap("Greys"))
+
+    plt.xlim(-1,1)
+    plt.ylim(-1,1)
+    trans=ax.transData.transform
+    trans2=fig.transFigure.inverted().transform
+    piesize=0.1 # this is the image size
+    p2=piesize/2.0
+    for n in G:
+        xx,yy=trans(pos[n]) # figure coordinates
+        xa,ya=trans2((xx,yy)) # axes coordinates
+        a = plt.axes([xa-p2,ya-p2, piesize, piesize])
+        a.set_aspect('equal')
+        a.imshow(G.nodes[n]['image'])
+        a.axis('off')
+    ax.axis('off')
     plt.title("k = " + str(i) + "; Current cost: " + str(current_cost) + "; Lowest cost: " + str(best_cost))
-    nx.draw(G, pos, edgelist = edges, edge_color = weights_final, width = 3.0)#, edge_cmap=cm.get_cmap("Greys"))
+    ax.axis('off')
+    #nx.draw(G, pos, edgelist = edges, edge_color = weights_final, width = 3.0, edge_cmap=cm.get_cmap("Greys"))
+    #nx.draw(G, pos, with_labels = True, edgelist = edges, edge_color = weights_final, width = 3.0, edge_cmap=cm.get_cmap("Greys"))
     
     # create file name and append it to a list
     filename = f'{i}.png'
@@ -55,7 +122,7 @@ for i in range(df.shape[0]):
 
 
 # build gif
-with imageio.get_writer('mygif1.gif', mode='I') as writer:
+with imageio.get_writer('mygif.gif', mode='I') as writer:
     for filename in filenames:
         image = imageio.imread(filename)
         writer.append_data(image)

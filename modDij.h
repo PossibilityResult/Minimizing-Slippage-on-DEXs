@@ -21,6 +21,8 @@
 #include <list>
 #include <functional>
 #include <queue>
+#include <fstream>
+#include <sstream>
 
 using namespace std;
 # define INF 0x3f3f3f3f
@@ -93,6 +95,7 @@ Graph::Graph(uint16_t V) {
 Graph::Graph(const Graph &g) {
     this->V = g.V;
     adj = new list<iPair> [V];
+    costs = g.costs;
     //zeroEdge = make_pair(g.zeroEdge.first,g.zeroEdge.second);
     
     if (g.edgeList.size() > 0) {
@@ -372,6 +375,36 @@ struct comp2 {
     }
 };
 
+vector<Order> initOrderBookCSV() {
+    vector<Order> orderbook;
+    
+    ifstream file;
+    file.open("/Users/elijahfox/Desktop/orderbook.txt");
+    
+    string line;
+    
+    
+    int source;
+    int target;
+    double amount;
+
+    
+    getline(file, line);
+    
+    while(getline(file, line, ',')) {
+        getline(file, line, ',');
+        source = stoi(line);
+        getline(file, line, ',');
+        target = stoi(line);
+        getline(file, line);
+        amount = stod(line);
+        
+        orderbook.push_back(Order{static_cast<uint16_t>(source), static_cast<uint16_t>(target), amount});
+    }
+    cout << "\n\n";
+    return orderbook;
+}
+
 
 vector<Order> initOrderBookDENSE(uint16_t numTokens) {
     std::mt19937_64 rng;
@@ -392,7 +425,7 @@ vector<Order> initOrderBookDENSE(uint16_t numTokens) {
     }
     return orderbook;
 }
-       
+        
 
 
 
