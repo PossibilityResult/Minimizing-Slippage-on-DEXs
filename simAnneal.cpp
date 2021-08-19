@@ -1,7 +1,4 @@
 //
-//  simulatedAnnealing.cpp
-//  simulated annealing
-//
 //  Created by Elijah Fox on 8/3/21.
 //  Copyright © 2021 Elijah Fox. All rights reserved.
 //
@@ -40,6 +37,7 @@ public:
     
     double totalLiquidity;
     double energy;
+    Costs fees;
     uint16_t numTokens;
     vector<pair<uint16_t, uint16_t> > support;
     vector<pair<uint16_t, uint16_t> > out;
@@ -67,6 +65,7 @@ Annealing::Annealing(Annealing &A, bool edit) {
     out.assign(A.out.begin(), A.out.end());
     energy = A.energy;
     totalLiquidity = A.totalLiquidity;
+    fees = A.fees;
     
     bool validGraph = false;
     
@@ -136,17 +135,19 @@ void Annealing::randomSupport(uint16_t numTokens) {
 }
 
 vector<pair<size_t, double> > Annealing::scoring(vector<Graph> &population, vector<Order> orderbook) {
-    double totalLoss = 0;
-    
     vector<pair<size_t, double> > lookup(population.size());
     for (size_t s = 0; s < population.size(); ++s) {
         lookup[s].first = s;
-        lookup[s].second = population[s].lossFunction(orderbook);
-        totalLoss += lookup[s].second;
+        Costs temp = population[s].lossFunction(orderbook);
+        lookup[s].second = temp.dist;
     }
     
     sort(lookup.begin(), lookup.end(), comp2());
     energy = population[lookup[0].first].costs;
+    fees.dist = population[lookup[0].first].costs;
+    fees.slip = population[lookup[0].first].slip;
+    fees.gas = population[lookup[0].first].gas;
+    fees.trans = population[lookup[0].first].trans;
     return lookup;
 }
 
@@ -226,6 +227,23 @@ int main() {
     
     Annealing prior = Annealing(numTokens);
     
+    vector<vector<uint16_t> > adjmat;
+    
+    vector<uint16_t> vec(numTokens);
+    
+    for (uint16_t i = 0; i < numTokens; ++i) {
+        vec[i] = i;
+    }
+    int index = 0;
+    for (uint16_t i = 0; i < numTokens; i++) {
+        for (uint16_t j = i; j < numTokens; ++j) {
+            if (i != j) {
+                prior.out.push_back(make_pair(vec[i], vec[j]));
+                index++;
+            }
+        }
+    }
+    
     getline(file, line);
     while(getline(file, line, ',')) {
         getline(file, line, ',');
@@ -235,23 +253,44 @@ int main() {
         getline(file, line);
         liquidity = stod(line);
         
+        //TODO: DEBUG AND FIGURE OUT
         if (node1 != 11) {
-            prior.support.push_back(make_pair(static_cast<uint16_t>(node1), static_cast<uint16_t>(node2)));
-            g.addEdge(node1, node2, liquidity);
+            size_t s = prior.out.size();
+            for (size_t x = 0; x < s; ++x){
+                if ((prior.out[x].first == node1 and prior.out[x].second == node2)
+                    or (prior.out[x].second == node1 and prior.out[x].first == node2)){
+                    prior.support.push_back(make_pair(node1, node2));
+                    prior.out.erase(prior.out.begin() + x);
+                    g.addEdge(node1, node2, liquidity);
+                    
+                }
+            }
+
         }
         else {
             prior.totalLiquidity = liquidity;
         }
     }
+    std::ofstream myfile;
+    myfile.open ("edges.csv");
+    myfile << "\n";
+    
+    std::ofstream costFile;
+    costFile.open ("costs.csv");
+    costFile << "\n";
+    
+    typedef std::numeric_limits< double > dbl;
+    cout.precision(dbl::max_digits10);
+    myfile.precision(dbl::max_digits10);
+    costFile.precision(dbl::max_digits10);
     
     vector<Order> ob = initOrderBookCSV();
     g.lossFunction(ob);
     
-    cout << "SushiSwap Loss: " << g.costs << "\n\n";
-    
-    std::ofstream myfile;
-    myfile.open ("edges.csv");
-    myfile << "\n";
+    cout << "SushiSwap Loss: " << g.costs << "\n";
+    cout << "SushiSwap Slippage: " << g.slip << "\n";
+    cout << "SushiSwap Transaction Fees: " << g.trans << "\n";
+    cout << "SushiSwap Gas Fees: " << g.gas << "\n\n";
     
     std::mt19937_64 rng;
     // initialize the random number generator with time-dependent seed
@@ -269,6 +308,7 @@ int main() {
     vector<edge> edges = prior.E(ob);
     //vector< pair< pair<uint16_t, double>*, pair<uint16_t, double>* > > out = g.edgeList;
     Annealing best = Annealing(prior, edit);
+    costFile << best.fees.dist  << " " << best.fees.slip << " " << best.fees.trans << best.fees.gas << "\n";
     
     for (uint16_t k = 0; k < kmax; ++k) {
         //p = uni(rng);
@@ -301,9 +341,12 @@ int main() {
             if (current.energy < best.energy) {
                 best = Annealing(current, edit);
                 b = k;
+                costFile << best.fees.dist  << " " << best.fees.slip << " " << best.fees.trans << best.fees.gas << "\n";
                 cout << "CURRENT IS NEW BEST!\n\n";
             }
         }
     }
     return 0;
+}
+
 }

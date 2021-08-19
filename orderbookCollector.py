@@ -111,33 +111,35 @@ edge_data.append((11, 11, totalLiquidity))
 
 pos = nx.circular_layout(G)
 
-fig=plt.figure(figsize=(6,6))
-ax=plt.subplot(111)
-ax.set_aspect('equal')
-
+    
 edges,weights = zip(*nx.get_edge_attributes(G,'weight').items())
 weights_final = [float(x) for x in weights]
-nx.draw_networkx_edges(G, pos, width = 3.0)#ax=ax, edge_color = weights_final, width = 3.0, edge_cmap=cm.get_cmap("Greys"))
+nx.draw_networkx_edges(G, pos, width = 3.0)#edge_color = weights_final, width = 3.0, edge_cmap=cm.get_cmap("Greys"))
 
-plt.xlim(-1,1)
-plt.ylim(-1,1)
+ax=plt.gca()
+fig=plt.gcf()
+
+plt.xlim(-1.1,1.1)
+plt.ylim(-1.1,1.1)
 trans=ax.transData.transform
 trans2=fig.transFigure.inverted().transform
 piesize=0.1 # this is the image size
 p2=piesize/2.0
 for n in G:
-    xx,yy=trans(pos[n]) # figure coordinates
-    xa,ya=trans2((xx,yy)) # axes coordinates
-    a = plt.axes([xa-p2,ya-p2, piesize, piesize])
-    a.set_aspect('equal')
-    a.imshow(G.nodes[n]['image'])
-    a.axis('off')
-ax.axis('off')
+  xx,yy=trans(pos[n]) # figure coordinates
+  xa,ya=trans2((xx,yy)) # axes coordinates
+  a = plt.axes([xa-p2,ya-p2, piesize, piesize])
+  a.set_aspect('equal')
+  a.imshow(G.nodes[n]['image'])
+  a.axis('off')
 
+ax.set_title("Total cost: 765702")
+ax.axis('off')
+fig.set_size_inches(6, 6)
 
 #nx.draw(G, pos, with_labels = True, edgelist = edges, edge_color = weights_final, width = 3.0, edge_cmap=cm.get_cmap("Greys"))
 
-#plt.show()
+plt.show()
 
 query = """{{
   swaps (

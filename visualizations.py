@@ -79,21 +79,21 @@ for i in range(df.shape[0]):
         G.add_edge(index_to_tick[int(edge[0])], index_to_tick[int(edge[1])], weight=edge[2])
         #print(edge)
 
-    edges,weights = zip(*nx.get_edge_attributes(G,'weight').items())
-
-    weights_final = [float(x) for x in weights]
-
     pos = nx.circular_layout(G)
-    fig=plt.figure(figsize=(7,7))
-    ax=plt.subplot(111)
-    ax.set_aspect('equal')
+    #fig=plt.figure(figsize=(7,7))
+    #ax=plt.subplot(111)
+    #ax.set_aspect('equal')
 
+    
     edges,weights = zip(*nx.get_edge_attributes(G,'weight').items())
     weights_final = [float(x) for x in weights]
-    nx.draw_networkx_edges(G, pos, ax=ax, edge_color = weights_final, width = 3.0, edge_cmap=cm.get_cmap("Greys"))
+    nx.draw_networkx_edges(G, pos, width = 3.0)#edge_color = weights_final, width = 3.0, edge_cmap=cm.get_cmap("Greys"))
 
-    plt.xlim(-1,1)
-    plt.ylim(-1,1)
+    ax=plt.gca()
+    fig=plt.gcf()
+
+    plt.xlim(-1.1,1.1)
+    plt.ylim(-1.1,1.1)
     trans=ax.transData.transform
     trans2=fig.transFigure.inverted().transform
     piesize=0.1 # this is the image size
@@ -105,9 +105,12 @@ for i in range(df.shape[0]):
         a.set_aspect('equal')
         a.imshow(G.nodes[n]['image'])
         a.axis('off')
+    #ax.axis('off')
+    #ax.xaxis.set_label_position('top')
+    #ax.xaxis.tick_top()
+    ax.set_title("Round: " + str(i) + "; Current cost: " + str(current_cost) + "; Lowest cost: " + str(best_cost))
     ax.axis('off')
-    plt.title("k = " + str(i) + "; Current cost: " + str(current_cost) + "; Lowest cost: " + str(best_cost))
-    ax.axis('off')
+    fig.set_size_inches(6, 6)
     #nx.draw(G, pos, edgelist = edges, edge_color = weights_final, width = 3.0, edge_cmap=cm.get_cmap("Greys"))
     #nx.draw(G, pos, with_labels = True, edgelist = edges, edge_color = weights_final, width = 3.0, edge_cmap=cm.get_cmap("Greys"))
     
