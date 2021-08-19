@@ -28,6 +28,12 @@ using namespace std;
 # define INF 0x3f3f3f3f
 
 //extern double bestAllocation;
+struct Costs {
+    double dist;
+    double slip;
+    double trans;
+    double gas;
+};
 
 // iPair ==> Integer Pair
 typedef pair<uint16_t, double> iPair;
@@ -54,6 +60,9 @@ public:
     vector< pair< pair<uint16_t, double>*, pair<uint16_t, double>* > > edgeList;
     
     double costs;
+    double slip;
+    double trans;
+    double gas;
     
     //pair<uint16_t, uint16_t> zeroEdge;
 
@@ -73,7 +82,7 @@ public:
     void addEdge(uint16_t u, uint16_t v, double w);
 
     // prints shortest path from s
-    double shortestPath(uint16_t s, uint16_t t, double exchange_amount);
+    Costs shortestPath(uint16_t s, uint16_t t, double exchange_amount);
     
     //generates a random allocation of liquidity
     void randomAllocationDENSE(double totalLiquidity, uint16_t numTokens);
@@ -81,7 +90,7 @@ public:
     void randomAllocationSupport(double totalLiquidity, uint16_t numTokens, vector<pair<uint16_t, uint16_t> > support);
     
     //calculates total loss (gas + transaction fees + slippage) given an orderbook
-    double lossFunction(vector<Order> orderBook);
+    Costs lossFunction(vector<Order> orderBook);
     
 };
 
@@ -174,8 +183,9 @@ double calculateSlippage(double liquidity, double q1) {
 }
 
 // Prints shortest paths from src to all other vertices
-double Graph::shortestPath(uint16_t src, uint16_t target, double exchange_amount)
+Costs Graph::shortestPath(uint16_t src, uint16_t target, double exchange_amount)
 {
+    Costs result;
     // Create a priority queue to store vertices that
     // are being preprocessed.
     priority_queue< iPair, vector <iPair> , greater<iPair> > pq;
@@ -184,12 +194,16 @@ double Graph::shortestPath(uint16_t src, uint16_t target, double exchange_amount
     // distances/slippage as infinite (INF)
     vector<double> dist(V, INF);
     vector<double> slip(V, INF);
+    vector<double> gas(V, INF);
+    vector<double> trans(V, INF);
     
     // Insert source itself in priority queue and initialize
     // its distance/slippage as 0.
     pq.push(make_pair(0, src));
     dist[src] = 0;
     slip[src] = 0;
+    gas[src] = 0;
+    trans[src] = 0;
 
     /* Looping till priority queue becomes empty (or all
     distances are not finalized) */
@@ -205,7 +219,11 @@ double Graph::shortestPath(uint16_t src, uint16_t target, double exchange_amount
         pq.pop();
         
         if (u == target) {
-            return dist[target];
+            result.gas = gas[target];
+            result.trans = trans[target];
+            result.slip = slip[target];
+            result.dist = dist[target];
+            return result;
         }
     
         // 'i' is used to get all adjacent vertices of a vertex
@@ -219,8 +237,10 @@ double Graph::shortestPath(uint16_t src, uint16_t target, double exchange_amount
             
             //calculates just slippage loss
             double s = calculateSlippage(weight, exchange_amount - slip[u]);
+            double g = 20;
+            double t = .003 * (exchange_amount - slip[u]);
             //calculate distance (includes transaction fees and gas)
-            double d = s + 10 + .003 * (exchange_amount - slip[u]);
+            double d = s + g + t;
 
             // If there is shorter path to v through u.
             if (dist[v] > dist[u] + d)
@@ -228,11 +248,17 @@ double Graph::shortestPath(uint16_t src, uint16_t target, double exchange_amount
                 // Updating distance of v
                 dist[v] = dist[u] + d;
                 slip[v] = slip[u] + s;
+                gas[v] = gas[u] + g;
+                trans[v] = trans[u] + t;
                 pq.push(make_pair(dist[v], v));
             }
         }
     }
-    return dist[target];
+    result.gas = gas[target];
+    result.trans = trans[target];
+    result.slip = slip[target];
+    result.dist = dist[target];
+    return result;
 }
 
 uint16_t maxEdges(uint16_t numTokens) {
@@ -306,13 +332,26 @@ void Graph::randomAllocationDENSE(double totalLiquidity, uint16_t numTokens) {
 }
 
 
-double Graph::lossFunction(vector<Order> orderBook) {
-    double loss = 0;
+Costs Graph::lossFunction(vector<Order> orderBook) {
+    Costs totals;
+    
+    costs = 0;
+    gas = 0;
+    slip = 0;
+    trans = 0;
+    
     for (size_t s = 0; s < orderBook.size(); ++s) {
-       loss += shortestPath(orderBook[s].src, orderBook[s].target, orderBook[s].amount);
+        Costs temp = shortestPath(orderBook[s].src, orderBook[s].target, orderBook[s].amount);
+        costs += temp.dist;
+        gas += temp.gas;
+        slip += temp.slip;
+        trans += temp.trans;
     }
-    costs = loss;
-    return loss;
+    totals.dist = costs;
+    totals.gas = gas;
+    totals.slip = slip;
+    totals.trans = trans;
+    return totals;
 }
 
 //Returns a mutant graph
@@ -425,7 +464,3 @@ vector<Order> initOrderBookDENSE(uint16_t numTokens) {
     }
     return orderbook;
 }
-        
-
-
-
